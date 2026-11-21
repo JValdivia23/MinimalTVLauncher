@@ -8,6 +8,7 @@ import android.content.IntentFilter;
 import android.content.pm.PackageManager;
 import android.content.pm.ResolveInfo;
 import android.graphics.Color;
+import android.graphics.Outline;
 import android.graphics.Typeface;
 import android.graphics.drawable.Drawable;
 import android.os.Bundle;
@@ -21,7 +22,7 @@ import android.view.Gravity;
 import android.view.KeyEvent;
 import android.view.View;
 import android.view.ViewGroup;
-import android.widget.HorizontalScrollView;
+import android.view.ViewOutlineProvider;
 import android.widget.ImageView;
 import android.widget.LinearLayout;
 import android.widget.ScrollView;
@@ -44,9 +45,9 @@ import java.util.Set;
  *
  * Features:
  * - Native DisplayPort (default focus), USB-C, and HDMI 1 hardware input cards
- * - Auto-boot directly to DisplayPort toggle (persisted in SharedPreferences)
- * - Clean 5-column TV apps grid (only real TV apps; hides self & redundant launchers)
- * - Live clock, direct Android Settings shortcut, zero telemetry, ~15 MB RAM footprint
+ * - Boot target cycle pill (DP -> USB-C -> HDMI 1 -> OFF) + long-press on any input card
+ * - Clean 5-column TV apps grid with rounded banners, zero clipping, and smooth D-pad focus
+ * - Live clock, direct Android Settings shortcut, zero telemetry, ~38 MB total PSS footprint
  */
 public class MainActivity extends Activity {
 
@@ -57,6 +58,7 @@ public class MainActivity extends Activity {
     private TextView clockView;
     private TextView dateView;
     private TextView autoBootButton;
+    private TextView settingsButton;
     private View firstInputCard;
 
     private final Handler clockHandler = new Handler(Looper.getMainLooper());
@@ -141,7 +143,7 @@ public class MainActivity extends Activity {
     private void maybeAutoSwitchOnColdBoot() {
         if (coldBootAutoSwitchAttempted) return;
         coldBootAutoSwitchAttempted = true;
-        // If Android just booted (< 90s uptime) and Auto-boot DP is ON, switch straight to DP.
+        // If Android just booted (< 90s uptime) and auto-boot is ON, switch straight to chosen input.
         if (SystemClock.elapsedRealtime() < 90_000L && InputManagerHelper.isAutoBootDpEnabled(this)) {
             final String targetId = InputManagerHelper.getDefaultInputId(this);
             clockHandler.postDelayed(new Runnable() {
@@ -157,18 +159,24 @@ public class MainActivity extends Activity {
         ScrollView scrollView = new ScrollView(this);
         scrollView.setFillViewport(true);
         scrollView.setVerticalScrollBarEnabled(false);
+        scrollView.setClipToPadding(false);
+        scrollView.setClipChildren(false);
 
         LinearLayout root = new LinearLayout(this);
         root.setOrientation(LinearLayout.VERTICAL);
-        root.setPadding(dp(48), dp(34), dp(48), dp(40));
+        root.setClipToPadding(false);
+        root.setClipChildren(false);
+        root.setPadding(dp(48), dp(26), dp(48), dp(52));
 
         // --- TOP HEADER BAR ---
         LinearLayout header = new LinearLayout(this);
         header.setOrientation(LinearLayout.HORIZONTAL);
         header.setGravity(Gravity.CENTER_VERTICAL);
+        header.setClipToPadding(false);
+        header.setClipChildren(false);
         LinearLayout.LayoutParams headerLp = new LinearLayout.LayoutParams(
                 ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT);
-        headerLp.bottomMargin = dp(28);
+        headerLp.bottomMargin = dp(20);
         root.addView(header, headerLp);
 
         // Left: Title + Monitor label
@@ -177,14 +185,14 @@ public class MainActivity extends Activity {
         TextView brand = new TextView(this);
         brand.setText("KTC A32Q8");
         brand.setTextColor(Color.parseColor("#E2E8F0"));
-        brand.setTextSize(TypedValue.COMPLEX_UNIT_SP, 26);
+        brand.setTextSize(TypedValue.COMPLEX_UNIT_SP, 25);
         brand.setTypeface(Typeface.create("sans-serif-medium", Typeface.BOLD));
         titleCol.addView(brand);
 
         TextView sub = new TextView(this);
         sub.setText("Open Smart Monitor");
         sub.setTextColor(Color.parseColor("#7E8CA6"));
-        sub.setTextSize(TypedValue.COMPLEX_UNIT_SP, 13);
+        sub.setTextSize(TypedValue.COMPLEX_UNIT_SP, 12);
         titleCol.addView(sub);
 
         header.addView(titleCol, new LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f));
@@ -203,10 +211,11 @@ public class MainActivity extends Activity {
                 ).show();
             }
         });
+        autoBootButton.setId(View.generateViewId());
         updateAutoBootPill();
         header.addView(autoBootButton, pillLp(dp(12)));
 
-        TextView settingsBtn = createPillButton("Settings", new View.OnClickListener() {
+        settingsButton = createPillButton("Settings", new View.OnClickListener() {
             @Override
             public void onClick(View v) {
                 try {
@@ -218,7 +227,8 @@ public class MainActivity extends Activity {
                 }
             }
         });
-        header.addView(settingsBtn, pillLp(dp(24)));
+        settingsButton.setId(View.generateViewId());
+        header.addView(settingsButton, pillLp(dp(22)));
 
         LinearLayout clockCol = new LinearLayout(this);
         clockCol.setOrientation(LinearLayout.VERTICAL);
@@ -226,7 +236,7 @@ public class MainActivity extends Activity {
 
         clockView = new TextView(this);
         clockView.setTextColor(Color.parseColor("#F1F5F9"));
-        clockView.setTextSize(TypedValue.COMPLEX_UNIT_SP, 26);
+        clockView.setTextSize(TypedValue.COMPLEX_UNIT_SP, 25);
         clockView.setTypeface(Typeface.create("sans-serif-light", Typeface.NORMAL));
         clockCol.addView(clockView);
 
@@ -244,11 +254,11 @@ public class MainActivity extends Activity {
         inputsRow.setOrientation(LinearLayout.HORIZONTAL);
         inputsRow.setClipToPadding(false);
         inputsRow.setClipChildren(false);
-        inputsRow.setPadding(dp(2), dp(6), dp(2), dp(14));
+        inputsRow.setPadding(0, dp(4), 0, dp(8));
 
         LinearLayout.LayoutParams inputsRowLp = new LinearLayout.LayoutParams(
                 ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT);
-        inputsRowLp.bottomMargin = dp(20);
+        inputsRowLp.bottomMargin = dp(18);
         root.addView(inputsRow, inputsRowLp);
 
         // --- APPS SECTION ---
@@ -258,6 +268,7 @@ public class MainActivity extends Activity {
         appsGridContainer.setOrientation(LinearLayout.VERTICAL);
         appsGridContainer.setClipToPadding(false);
         appsGridContainer.setClipChildren(false);
+        appsGridContainer.setPadding(0, dp(4), 0, dp(16));
         root.addView(appsGridContainer, new LinearLayout.LayoutParams(
                 ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT));
 
@@ -290,22 +301,28 @@ public class MainActivity extends Activity {
         for (int i = 0; i < inputs.size(); i++) {
             final InputManagerHelper.InputItem item = inputs.get(i);
             View card = createInputCard(item);
+            card.setId(View.generateViewId());
+            card.setNextFocusUpId(autoBootButton.getId());
             if (i == 0) {
                 firstInputCard = card;
+                autoBootButton.setNextFocusDownId(card.getId());
             }
-            LinearLayout.LayoutParams lp = new LinearLayout.LayoutParams(0, dp(104), 1f);
+            LinearLayout.LayoutParams lp = new LinearLayout.LayoutParams(0, dp(96), 1f);
             lp.rightMargin = dp(16);
             inputsRow.addView(card, lp);
         }
 
-        // Also add a clean "All Inputs" utility card for quick access to Realtek's native source popup
-        View popupCard = createUtilityCard("All Inputs", "Monitor OSD", R.drawable.ic_hdmi, new View.OnClickListener() {
+        // Flush right-aligned "All Inputs" utility card with matching monitor icon
+        View popupCard = createUtilityCard("All Inputs", "Monitor OSD", R.drawable.ic_inputs_osd, new View.OnClickListener() {
             @Override
             public void onClick(View v) {
                 InputManagerHelper.openNativeInputPopup(MainActivity.this);
             }
         });
-        LinearLayout.LayoutParams popupLp = new LinearLayout.LayoutParams(0, dp(104), 0.78f);
+        popupCard.setId(View.generateViewId());
+        popupCard.setNextFocusUpId(settingsButton.getId());
+        settingsButton.setNextFocusDownId(popupCard.getId());
+        LinearLayout.LayoutParams popupLp = new LinearLayout.LayoutParams(0, dp(96), 0.85f);
         inputsRow.addView(popupCard, popupLp);
 
         if (firstInputCard != null && getCurrentFocus() == null) {
@@ -318,7 +335,7 @@ public class MainActivity extends Activity {
         card.setOrientation(LinearLayout.HORIZONTAL);
         card.setGravity(Gravity.CENTER_VERTICAL);
         card.setBackgroundResource(R.drawable.card_bg);
-        card.setPadding(dp(18), dp(14), dp(18), dp(14));
+        card.setPadding(dp(18), dp(12), dp(16), dp(12));
         card.setFocusable(true);
         card.setFocusableInTouchMode(false);
         card.setClickable(true);
@@ -326,7 +343,7 @@ public class MainActivity extends Activity {
         ImageView icon = new ImageView(this);
         icon.setImageResource(item.iconRes);
         icon.setScaleType(ImageView.ScaleType.FIT_CENTER);
-        LinearLayout.LayoutParams iconLp = new LinearLayout.LayoutParams(dp(44), dp(44));
+        LinearLayout.LayoutParams iconLp = new LinearLayout.LayoutParams(dp(42), dp(42));
         iconLp.rightMargin = dp(14);
         card.addView(icon, iconLp);
 
@@ -336,7 +353,7 @@ public class MainActivity extends Activity {
         TextView title = new TextView(this);
         title.setText(item.label);
         title.setTextColor(Color.parseColor("#F1F5F9"));
-        title.setTextSize(TypedValue.COMPLEX_UNIT_SP, 17);
+        title.setTextSize(TypedValue.COMPLEX_UNIT_SP, 16);
         title.setTypeface(Typeface.create("sans-serif-medium", Typeface.BOLD));
         title.setSingleLine(true);
         textCol.addView(title);
@@ -349,7 +366,7 @@ public class MainActivity extends Activity {
         sub.setTextColor(item.active
                 ? Color.parseColor("#9ECE6A")
                 : (isBootDefault ? Color.parseColor("#7AA2F7") : Color.parseColor("#8A99B5")));
-        sub.setTextSize(TypedValue.COMPLEX_UNIT_SP, 12);
+        sub.setTextSize(TypedValue.COMPLEX_UNIT_SP, 11.5f);
         sub.setSingleLine(true);
         textCol.addView(sub);
 
@@ -381,25 +398,39 @@ public class MainActivity extends Activity {
 
     private View createUtilityCard(String label, String subtitle, int iconRes, View.OnClickListener clickListener) {
         LinearLayout card = new LinearLayout(this);
-        card.setOrientation(LinearLayout.VERTICAL);
+        card.setOrientation(LinearLayout.HORIZONTAL);
         card.setGravity(Gravity.CENTER_VERTICAL);
         card.setBackgroundResource(R.drawable.card_bg);
-        card.setPadding(dp(18), dp(14), dp(18), dp(14));
+        card.setPadding(dp(16), dp(12), dp(14), dp(12));
         card.setFocusable(true);
         card.setClickable(true);
+
+        ImageView icon = new ImageView(this);
+        icon.setImageResource(iconRes);
+        icon.setScaleType(ImageView.ScaleType.FIT_CENTER);
+        LinearLayout.LayoutParams iconLp = new LinearLayout.LayoutParams(dp(38), dp(38));
+        iconLp.rightMargin = dp(12);
+        card.addView(icon, iconLp);
+
+        LinearLayout textCol = new LinearLayout(this);
+        textCol.setOrientation(LinearLayout.VERTICAL);
 
         TextView title = new TextView(this);
         title.setText(label);
         title.setTextColor(Color.parseColor("#CBD5E1"));
-        title.setTextSize(TypedValue.COMPLEX_UNIT_SP, 16);
+        title.setTextSize(TypedValue.COMPLEX_UNIT_SP, 15);
         title.setTypeface(Typeface.create("sans-serif-medium", Typeface.BOLD));
-        card.addView(title);
+        title.setSingleLine(true);
+        textCol.addView(title);
 
         TextView sub = new TextView(this);
         sub.setText(subtitle);
         sub.setTextColor(Color.parseColor("#7E8CA6"));
-        sub.setTextSize(TypedValue.COMPLEX_UNIT_SP, 12);
-        card.addView(sub);
+        sub.setTextSize(TypedValue.COMPLEX_UNIT_SP, 11.5f);
+        sub.setSingleLine(true);
+        textCol.addView(sub);
+
+        card.addView(textCol);
 
         attachFocusScale(card);
         card.setOnClickListener(clickListener);
@@ -431,7 +462,7 @@ public class MainActivity extends Activity {
         List<ResolveInfo> resolved = pm.queryIntentActivities(tvIntent, 0);
 
         Set<String> seenPackages = new HashSet<>();
-        // Hide self, Projectivy (if still installed), and system Settings (already in header)
+        // Hide self, Projectivy (if installed), and system Settings (already in header)
         seenPackages.add(getPackageName());
         seenPackages.add("com.spocky.projengmenu");
         seenPackages.add("com.android.tv.settings");
@@ -477,7 +508,7 @@ public class MainActivity extends Activity {
             }
 
             View appCard = createAppCard(apps.get(i));
-            LinearLayout.LayoutParams lp = new LinearLayout.LayoutParams(0, dp(116), 1f);
+            LinearLayout.LayoutParams lp = new LinearLayout.LayoutParams(0, dp(110), 1f);
             lp.rightMargin = ((i + 1) % columns == 0) ? 0 : dp(16);
             currentRow.addView(appCard, lp);
         }
@@ -487,7 +518,7 @@ public class MainActivity extends Activity {
         if (remainder != 0 && currentRow != null) {
             for (int j = remainder; j < columns; j++) {
                 View spacer = new View(this);
-                LinearLayout.LayoutParams lp = new LinearLayout.LayoutParams(0, dp(116), 1f);
+                LinearLayout.LayoutParams lp = new LinearLayout.LayoutParams(0, dp(110), 1f);
                 lp.rightMargin = (j == columns - 1) ? 0 : dp(16);
                 currentRow.addView(spacer, lp);
             }
@@ -499,7 +530,7 @@ public class MainActivity extends Activity {
         card.setOrientation(LinearLayout.VERTICAL);
         card.setGravity(Gravity.CENTER);
         card.setBackgroundResource(R.drawable.card_bg);
-        card.setPadding(dp(8), dp(8), dp(8), dp(8));
+        card.setPadding(dp(8), dp(8), dp(8), dp(7));
         card.setFocusable(true);
         card.setClickable(true);
 
@@ -507,12 +538,20 @@ public class MainActivity extends Activity {
         img.setImageDrawable(app.bannerOrIcon);
         if (app.isBanner) {
             img.setScaleType(ImageView.ScaleType.CENTER_CROP);
+            final float cornerRadius = dp(8);
+            img.setOutlineProvider(new ViewOutlineProvider() {
+                @Override
+                public void getOutline(View view, Outline outline) {
+                    outline.setRoundRect(0, 0, view.getWidth(), view.getHeight(), cornerRadius);
+                }
+            });
+            img.setClipToOutline(true);
             LinearLayout.LayoutParams imgLp = new LinearLayout.LayoutParams(
-                    ViewGroup.LayoutParams.MATCH_PARENT, dp(72));
+                    ViewGroup.LayoutParams.MATCH_PARENT, dp(68));
             card.addView(img, imgLp);
         } else {
             img.setScaleType(ImageView.ScaleType.FIT_CENTER);
-            LinearLayout.LayoutParams imgLp = new LinearLayout.LayoutParams(dp(52), dp(52));
+            LinearLayout.LayoutParams imgLp = new LinearLayout.LayoutParams(dp(48), dp(48));
             imgLp.topMargin = dp(8);
             imgLp.bottomMargin = dp(6);
             card.addView(img, imgLp);
@@ -572,7 +611,7 @@ public class MainActivity extends Activity {
     private LinearLayout.LayoutParams sectionLp() {
         LinearLayout.LayoutParams lp = new LinearLayout.LayoutParams(
                 ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT);
-        lp.bottomMargin = dp(8);
+        lp.bottomMargin = dp(6);
         return lp;
     }
 
@@ -601,14 +640,24 @@ public class MainActivity extends Activity {
     private void attachFocusScale(final View v) {
         v.setOnFocusChangeListener(new View.OnFocusChangeListener() {
             @Override
-            public void onFocusChange(View view, boolean hasFocus) {
-                float scale = hasFocus ? 1.05f : 1.0f;
+            public void onFocusChange(final View view, boolean hasFocus) {
+                float scale = hasFocus ? 1.045f : 1.0f;
                 view.animate()
                         .scaleX(scale)
                         .scaleY(scale)
                         .setDuration(100)
                         .start();
                 view.setElevation(hasFocus ? dp(8) : 0f);
+                if (hasFocus) {
+                    view.post(new Runnable() {
+                        @Override
+                        public void run() {
+                            android.graphics.Rect rect = new android.graphics.Rect(
+                                    -dp(12), -dp(16), view.getWidth() + dp(12), view.getHeight() + dp(20));
+                            view.requestRectangleOnScreen(rect, false);
+                        }
+                    });
+                }
             }
         });
     }

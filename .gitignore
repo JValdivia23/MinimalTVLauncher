@@ -1,0 +1,6 @@
+build/
+*.apk
+*.keystore
+*.idsig
+.DS_Store
+*.swp

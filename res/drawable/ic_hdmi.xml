@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="utf-8"?>
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="48dp"
+    android:height="48dp"
+    android:viewportWidth="24"
+    android:viewportHeight="24">
+    <!-- HDMI trapezoid connector -->
+    <path
+        android:fillColor="#00000000"
+        android:strokeColor="#E2E8F0"
+        android:strokeWidth="1.8"
+        android:strokeLineJoin="round"
+        android:pathData="M3,8 L21,8 L21,13 L18.5,16 L5.5,16 L3,13 Z" />
+    <!-- Center contact bar -->
+    <path
+        android:fillColor="#BB9AF7"
+        android:pathData="M6.5,11 L17.5,11 L17.5,12.8 L6.5,12.8 Z" />
+</vector>

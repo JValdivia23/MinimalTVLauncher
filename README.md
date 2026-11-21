@@ -9,6 +9,11 @@ Designed to replace sluggish, ad-heavy Google TV launchers on low-RAM (2 GB) sma
 ## Features
 
 - **Native Smart Monitor Inputs**: Dynamically discovers hardware passthrough inputs via Android's `TvInputManager` (**DisplayPort**, **USB-C**, **HDMI 1**) with live active signal badges and clean vector icons.
+- **Live MRMS Weather Radar Screensaver & On-Demand Viewer (`Radar`)**:
+  - Registers a native Android TV `DreamService` (`RadarDreamService`) displaying your live [MRMS Weather Radar](https://jvaldivia23.github.io/personal_webpage/radar/) in a hardware-accelerated WebView with auto-looping scans.
+  - **PC / DisplayPort Safe**: Realtek's hardware passthrough wake lock + an explicit passthrough guard ensure the Android screensaver **never** interrupts active DisplayPort / USB-C / HDMI workstation use.
+  - **Zero RAM Leak**: Runs in an isolated `:radar` process that terminates immediately on exit/wake, returning 100% of Chromium WebView memory back to the OS (Home launcher stays at ~40 MB PSS / 1.2 MB Java heap).
+  - **Interactive Remote Controls**: Click **`Radar`** in the top bar anytime (`OK` = Play/Pause, `Up/Down` = Zoom, `Left/Right` = Step scan, `Back` = Close).
 - **Built-in Hardware Sleep Timer (`☾ Zzz`)**:
   - Click the top-bar **`☾ Zzz`** pill to cycle presets (`OFF` → `15m` → `30m` → `45m` → `60m` → `90m` → `120m` → `OFF`), or **long-press** to cancel immediately.
   - Displays a live countdown in the header (`☾ 30m` → `☾ 0:59`), warns 1 minute before sleep, and triggers Realtek's native `sleeptimer.SleepTimerRecevier` suspend via `AlarmManager` so it works even after switching to Netflix, YouTube, or DisplayPort.
@@ -49,6 +54,14 @@ A local signing keystore (`ktc-launcher.keystore`, git-ignored) is automatically
    adb -s <ip>:5555 shell cmd package set-home-activity com.ktc.launcher/.MainActivity
    ```
    *(100% reversible at any time via `adb shell pm enable com.google.android.apps.tv.launcherx`.)*
+
+4. *(Optional)* Set `RadarDreamService` as your system screensaver (10-minute Android TV idle timeout):
+   ```bash
+   adb -s <ip>:5555 shell settings put secure screensaver_enabled 1
+   adb -s <ip>:5555 shell settings put secure screensaver_components com.ktc.launcher/com.ktc.launcher.RadarDreamService
+   adb -s <ip>:5555 shell settings put system screen_off_timeout 600000
+   adb -s <ip>:5555 shell settings put global stay_on_while_plugged_in 0
+   ```
 
 ### Optional: Free Extra RAM on Low-Memory Smart Monitors (e.g., KTC A32Q8)
 

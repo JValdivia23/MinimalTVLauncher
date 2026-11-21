@@ -57,6 +57,7 @@ public class MainActivity extends Activity {
     private LinearLayout appsGridContainer;
     private TextView clockView;
     private TextView dateView;
+    private LinearLayout radarButton;
     private LinearLayout sleepButton;
     private TextView sleepLabelView;
     private TextView autoBootButton;
@@ -204,7 +205,11 @@ public class MainActivity extends Activity {
 
         header.addView(titleCol, new LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f));
 
-        // Right controls: Sleep timer (Zzz), Boot target cycle pill, Android Settings, Clock
+        // Right controls: Radar screensaver, Sleep timer (Zzz), Boot target cycle pill, Android Settings, Clock
+        radarButton = createRadarPillButton();
+        radarButton.setId(View.generateViewId());
+        header.addView(radarButton, pillLp(dp(12)));
+
         sleepButton = createSleepPillButton();
         sleepButton.setId(View.generateViewId());
         updateSleepPill();
@@ -286,6 +291,42 @@ public class MainActivity extends Activity {
 
         scrollView.addView(root);
         setContentView(scrollView);
+    }
+
+    private LinearLayout createRadarPillButton() {
+        LinearLayout pill = new LinearLayout(this);
+        pill.setOrientation(LinearLayout.HORIZONTAL);
+        pill.setGravity(Gravity.CENTER_VERTICAL);
+        pill.setBackgroundResource(R.drawable.pill_bg);
+        pill.setPadding(dp(14), dp(8), dp(16), dp(8));
+        pill.setFocusable(true);
+        pill.setClickable(true);
+
+        ImageView icon = new ImageView(this);
+        icon.setImageResource(R.drawable.ic_radar);
+        icon.setScaleType(ImageView.ScaleType.FIT_CENTER);
+        LinearLayout.LayoutParams iconLp = new LinearLayout.LayoutParams(dp(18), dp(18));
+        iconLp.rightMargin = dp(7);
+        pill.addView(icon, iconLp);
+
+        TextView label = new TextView(this);
+        label.setText("Radar");
+        label.setTextColor(Color.parseColor("#7DCFFF"));
+        label.setTextSize(TypedValue.COMPLEX_UNIT_SP, 13);
+        label.setTypeface(Typeface.create("sans-serif-medium", Typeface.BOLD));
+        pill.addView(label);
+
+        attachFocusScale(pill);
+
+        pill.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View v) {
+                Intent i = new Intent(MainActivity.this, RadarActivity.class);
+                startActivity(i);
+            }
+        });
+
+        return pill;
     }
 
     private LinearLayout createSleepPillButton() {
@@ -380,10 +421,11 @@ public class MainActivity extends Activity {
             card.setId(View.generateViewId());
             if (i == 0) {
                 firstInputCard = card;
-                card.setNextFocusUpId(sleepButton.getId());
-                sleepButton.setNextFocusDownId(card.getId());
+                card.setNextFocusUpId(radarButton.getId());
+                radarButton.setNextFocusDownId(card.getId());
             } else if (i == 1) {
                 card.setNextFocusUpId(sleepButton.getId());
+                sleepButton.setNextFocusDownId(card.getId());
             } else {
                 card.setNextFocusUpId(autoBootButton.getId());
                 autoBootButton.setNextFocusDownId(card.getId());

@@ -4,7 +4,11 @@ An ultra-lightweight (~25 KB APK), zero-dependency, ad-free open-source Android 
 
 Designed to replace sluggish, ad-heavy Google TV launchers on low-RAM (2 GB) smart monitors while adding native hardware input switching (**DisplayPort**, **USB-C**, **HDMI**) and **auto-boot directly into your PC input**.
 
-![MinimalTVLauncher Screenshot](docs/screenshot.png)
+### Home Menu
+![MinimalTVLauncher Home Menu](docs/screenshot.png)
+
+### Built-in MRMS Weather Radar Screensaver
+![MRMS Weather Radar Screensaver](docs/radar.png)
 
 ## Features
 

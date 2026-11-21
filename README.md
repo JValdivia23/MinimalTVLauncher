@@ -9,6 +9,9 @@ Designed to replace sluggish, ad-heavy Google TV launchers on low-RAM (2 GB) sma
 ## Features
 
 - **Native Smart Monitor Inputs**: Dynamically discovers hardware passthrough inputs via Android's `TvInputManager` (**DisplayPort**, **USB-C**, **HDMI 1**) with live active signal badges and clean vector icons.
+- **Built-in Hardware Sleep Timer (`☾ Zzz`)**:
+  - Click the top-bar **`☾ Zzz`** pill to cycle presets (`OFF` → `15m` → `30m` → `45m` → `60m` → `90m` → `120m` → `OFF`), or **long-press** to cancel immediately.
+  - Displays a live countdown in the header (`☾ 30m` → `☾ 0:59`), warns 1 minute before sleep, and triggers Realtek's native `sleeptimer.SleepTimerRecevier` suspend via `AlarmManager` so it works even after switching to Netflix, YouTube, or DisplayPort.
 - **Auto-Boot to Any Input (`Boot -> DP / USB-C / HDMI 1 / OFF`)**:
   - Click the top-right **`Boot -> ...`** pill to cycle through `DP` → `USB-C` → `HDMI 1` → `OFF`.
   - Or **long-press** any input card to set it as the default boot input immediately.

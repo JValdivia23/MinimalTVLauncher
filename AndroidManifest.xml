@@ -45,5 +45,15 @@
             </intent-filter>
         </receiver>
 
+        <receiver
+            android:name=".SleepAlarmReceiver"
+            android:exported="false"
+            android:enabled="true">
+            <intent-filter>
+                <action android:name="com.ktc.launcher.ACTION_SLEEP_WARNING" />
+                <action android:name="com.ktc.launcher.ACTION_SLEEP_TRIGGER" />
+            </intent-filter>
+        </receiver>
+
     </application>
 </manifest>

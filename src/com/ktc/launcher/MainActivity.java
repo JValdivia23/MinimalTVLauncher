@@ -57,6 +57,8 @@ public class MainActivity extends Activity {
     private LinearLayout appsGridContainer;
     private TextView clockView;
     private TextView dateView;
+    private LinearLayout sleepButton;
+    private TextView sleepLabelView;
     private TextView autoBootButton;
     private TextView settingsButton;
     private View firstInputCard;
@@ -69,7 +71,11 @@ public class MainActivity extends Activity {
         @Override
         public void run() {
             updateClock();
-            clockHandler.postDelayed(this, 15000L);
+            updateSleepPill();
+            long nextDelay = (SleepTimerHelper.isActive(MainActivity.this)
+                    && SleepTimerHelper.getRemainingMs(MainActivity.this) <= 65_000L)
+                    ? 1000L : 10_000L;
+            clockHandler.postDelayed(this, nextDelay);
         }
     };
 
@@ -100,6 +106,7 @@ public class MainActivity extends Activity {
     protected void onResume() {
         super.onResume();
         updateClock();
+        updateSleepPill();
         clockHandler.removeCallbacks(clockTick);
         clockHandler.post(clockTick);
         refreshInputsRow();
@@ -197,7 +204,12 @@ public class MainActivity extends Activity {
 
         header.addView(titleCol, new LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f));
 
-        // Right controls: Boot target cycle pill (DP -> USB-C -> HDMI 1 -> OFF), Android Settings, Clock
+        // Right controls: Sleep timer (Zzz), Boot target cycle pill, Android Settings, Clock
+        sleepButton = createSleepPillButton();
+        sleepButton.setId(View.generateViewId());
+        updateSleepPill();
+        header.addView(sleepButton, pillLp(dp(12)));
+
         autoBootButton = createPillButton("", new View.OnClickListener() {
             @Override
             public void onClick(View v) {
@@ -276,6 +288,70 @@ public class MainActivity extends Activity {
         setContentView(scrollView);
     }
 
+    private LinearLayout createSleepPillButton() {
+        LinearLayout pill = new LinearLayout(this);
+        pill.setOrientation(LinearLayout.HORIZONTAL);
+        pill.setGravity(Gravity.CENTER_VERTICAL);
+        pill.setBackgroundResource(R.drawable.pill_bg);
+        pill.setPadding(dp(14), dp(8), dp(16), dp(8));
+        pill.setFocusable(true);
+        pill.setClickable(true);
+
+        ImageView icon = new ImageView(this);
+        icon.setImageResource(R.drawable.ic_sleep);
+        icon.setScaleType(ImageView.ScaleType.FIT_CENTER);
+        LinearLayout.LayoutParams iconLp = new LinearLayout.LayoutParams(dp(18), dp(18));
+        iconLp.rightMargin = dp(7);
+        pill.addView(icon, iconLp);
+
+        sleepLabelView = new TextView(this);
+        sleepLabelView.setTextSize(TypedValue.COMPLEX_UNIT_SP, 13);
+        sleepLabelView.setTypeface(Typeface.create("sans-serif-medium", Typeface.BOLD));
+        pill.addView(sleepLabelView);
+
+        attachFocusScale(pill);
+
+        pill.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View v) {
+                int mins = SleepTimerHelper.cyclePreset(MainActivity.this);
+                updateSleepPill();
+                clockHandler.removeCallbacks(clockTick);
+                clockHandler.post(clockTick);
+                Toast.makeText(
+                        MainActivity.this,
+                        mins == 0 ? "Sleep timer: OFF" : "Sleep timer: " + mins + " min",
+                        Toast.LENGTH_SHORT
+                ).show();
+            }
+        });
+
+        pill.setOnLongClickListener(new View.OnLongClickListener() {
+            @Override
+            public boolean onLongClick(View v) {
+                if (SleepTimerHelper.isActive(MainActivity.this)) {
+                    SleepTimerHelper.cancel(MainActivity.this);
+                    updateSleepPill();
+                    Toast.makeText(MainActivity.this, "Sleep timer cancelled", Toast.LENGTH_SHORT).show();
+                } else {
+                    Toast.makeText(MainActivity.this, "Sleep timer is already OFF", Toast.LENGTH_SHORT).show();
+                }
+                return true;
+            }
+        });
+
+        return pill;
+    }
+
+    private void updateSleepPill() {
+        if (sleepLabelView == null) return;
+        boolean active = SleepTimerHelper.isActive(this);
+        sleepLabelView.setText(SleepTimerHelper.formatPillLabel(this));
+        sleepLabelView.setTextColor(active
+                ? Color.parseColor("#BB9AF7")
+                : Color.parseColor("#CBD5E1"));
+    }
+
     private void updateAutoBootPill() {
         String target = InputManagerHelper.getBootTargetShortName(this);
         if ("OFF".equals(target)) {
@@ -302,9 +378,14 @@ public class MainActivity extends Activity {
             final InputManagerHelper.InputItem item = inputs.get(i);
             View card = createInputCard(item);
             card.setId(View.generateViewId());
-            card.setNextFocusUpId(autoBootButton.getId());
             if (i == 0) {
                 firstInputCard = card;
+                card.setNextFocusUpId(sleepButton.getId());
+                sleepButton.setNextFocusDownId(card.getId());
+            } else if (i == 1) {
+                card.setNextFocusUpId(sleepButton.getId());
+            } else {
+                card.setNextFocusUpId(autoBootButton.getId());
                 autoBootButton.setNextFocusDownId(card.getId());
             }
             LinearLayout.LayoutParams lp = new LinearLayout.LayoutParams(0, dp(96), 1f);

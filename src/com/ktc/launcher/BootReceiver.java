@@ -22,6 +22,9 @@ public class BootReceiver extends BroadcastReceiver {
             return;
         }
 
+        // Clear any stale sleep timer elapsed-realtime timestamp from before reboot
+        SleepTimerHelper.clearState(context);
+
         if (!InputManagerHelper.isAutoBootDpEnabled(context)) {
             return;
         }

@@ -1,0 +1,40 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Foreground overlay for full-bleed 16:9 app artwork tiles (inset cleanly inside 13dp clip outline) -->
+<selector xmlns:android="http://schemas.android.com/apk/res/android">
+    <item android:state_focused="true">
+        <layer-list>
+            <!-- Soft top-left glass specular sheen across focused artwork -->
+            <item>
+                <shape android:shape="rectangle">
+                    <gradient
+                        android:type="linear"
+                        android:angle="315"
+                        android:startColor="#24FFFFFF"
+                        android:centerColor="#04FFFFFF"
+                        android:endColor="#00FFFFFF" />
+                    <corners android:radius="13dp" />
+                </shape>
+            </item>
+            <!-- Crisp pure luminous white specular focus ring inset cleanly inside the 13dp clip -->
+            <item android:left="1dp" android:top="1dp" android:right="1dp" android:bottom="1dp">
+                <shape android:shape="rectangle">
+                    <solid android:color="#00000000" />
+                    <stroke android:width="2dp" android:color="#F4FFFFFF" />
+                    <corners android:radius="12dp" />
+                </shape>
+            </item>
+        </layer-list>
+    </item>
+    <item>
+        <!-- Hairline inner glass edge so dark-background banners stay defined on obsidian -->
+        <layer-list>
+            <item android:left="0.5dp" android:top="0.5dp" android:right="0.5dp" android:bottom="0.5dp">
+                <shape android:shape="rectangle">
+                    <solid android:color="#00000000" />
+                    <stroke android:width="1dp" android:color="#1CFFFFFF" />
+                    <corners android:radius="12.5dp" />
+                </shape>
+            </item>
+        </layer-list>
+    </item>
+</selector>

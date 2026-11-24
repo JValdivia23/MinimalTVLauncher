@@ -1,8 +1,8 @@
 # MinimalTVLauncher
 
-An ultra-lightweight (~25 KB APK), zero-dependency, ad-free open-source Android TV launcher built for Smart Monitors (tested on the **KTC A32Q8** / Realtek `RTD2851F`).
+An ultra-lightweight (~50 KB APK), zero-dependency, ad-free open-source Android TV launcher built for Smart Monitors (tested on the **KTC A32Q8** / Realtek `RTD2851F`).
 
-Designed to replace sluggish, ad-heavy Google TV launchers on low-RAM (2 GB) smart monitors while adding native hardware input switching (**DisplayPort**, **USB-C**, **HDMI**) and **auto-boot directly into your PC input**.
+Designed to replace sluggish, ad-heavy Google TV launchers on low-RAM (2 GB) smart monitors with an **Obsidian Spatial** aesthetic, native hardware input switching (**DisplayPort**, **USB-C**, **HDMI**), and **auto-boot directly into your PC input**.
 
 ### Home Menu
 ![MinimalTVLauncher Home Menu](docs/screenshot.png)
@@ -12,21 +12,24 @@ Designed to replace sluggish, ad-heavy Google TV launchers on low-RAM (2 GB) sma
 
 ## Features
 
-- **Native Smart Monitor Inputs**: Dynamically discovers hardware passthrough inputs via Android's `TvInputManager` (**DisplayPort**, **USB-C**, **HDMI 1**) with live active signal badges and clean vector icons.
+- **Obsidian Spatial Aesthetic (Zero Blur Overhead)**:
+  - **Dynamic Ambient Backlight**: Deep OLED-grade obsidian backdrop with a zero-blur GPU radial glow that cross-fades smoothly to match the focused app or input's dominant color.
+  - **Full-Bleed 16:9 App Tiles**: Edge-to-edge rounded artwork with crisp luminous white specular focus rings, native API 28+ colored hardware shadows (`setOutlineSpotShadowColor`), and floating titles.
+  - **Unified Frosted Glass Control Capsule**: Compact top-lit glass bar housing `Radar`, `Zzz`, `Boot · DP`, and `Settings` alongside a tabular-numeral live clock.
+- **Native Smart Monitor Sources**: Dynamically discovers hardware passthrough inputs via Android's `TvInputManager` (**DisplayPort**, **USB-C**, **HDMI 1**) inside a sleek specular glass dock with glowing emerald active-signal LEDs and a `BOOT` micro-badge.
 - **Live MRMS Weather Radar Screensaver & On-Demand Viewer (`Radar`)**:
   - Registers a native Android TV `DreamService` (`RadarDreamService`) displaying your live [MRMS Weather Radar](https://jvaldivia23.github.io/personal_webpage/radar/) in a hardware-accelerated WebView with auto-looping scans.
   - **PC / DisplayPort Safe**: Realtek's hardware passthrough wake lock + an explicit passthrough guard ensure the Android screensaver **never** interrupts active DisplayPort / USB-C / HDMI workstation use.
-  - **Zero RAM Leak**: Runs in an isolated `:radar` process that terminates immediately on exit/wake, returning 100% of Chromium WebView memory back to the OS (Home launcher stays at ~40 MB PSS / 1.2 MB Java heap).
+  - **Zero RAM Leak**: Runs in an isolated `:radar` process that terminates immediately on exit/wake, returning 100% of Chromium WebView memory back to the OS (Home launcher stays at ~48 MB PSS / 1.4 MB Java heap).
   - **Interactive Remote Controls**: Click **`Radar`** in the top bar anytime (`OK` = Play/Pause, `Up/Down` = Zoom, `Left/Right` = Step scan, `Back` = Close).
 - **Built-in Hardware Sleep Timer (`☾ Zzz`)**:
-  - Click the top-bar **`☾ Zzz`** pill to cycle presets (`OFF` → `15m` → `30m` → `45m` → `60m` → `90m` → `120m` → `OFF`), or **long-press** to cancel immediately.
+  - Click the top-bar **`☾ Zzz`** chip to cycle presets (`OFF` → `15m` → `30m` → `45m` → `60m` → `90m` → `120m` → `OFF`), or **long-press** to cancel immediately.
   - Displays a live countdown in the header (`☾ 30m` → `☾ 0:59`), warns 1 minute before sleep, and triggers Realtek's native `sleeptimer.SleepTimerRecevier` suspend via `AlarmManager` so it works even after switching to Netflix, YouTube, or DisplayPort.
-- **Auto-Boot to Any Input (`Boot -> DP / USB-C / HDMI 1 / OFF`)**:
-  - Click the top-right **`Boot -> ...`** pill to cycle through `DP` → `USB-C` → `HDMI 1` → `OFF`.
-  - Or **long-press** any input card to set it as the default boot input immediately.
+- **Auto-Boot to Any Input (`Boot · DP / USB-C / HDMI 1 / Off`)**:
+  - Click the top-bar **`Boot · ...`** chip to cycle through `DP` → `USB-C` → `HDMI 1` → `Off`.
+  - Or **long-press** any source tile to set it as the default boot input immediately.
   - Uses both `BOOT_COMPLETED` (`BootReceiver`) and cold-boot uptime fallback so your monitor jumps straight to your workstation on power-on.
-- **Ultra-Low Footprint**: ~25 KB compiled APK, ~1.3 MB Java heap (~38 MB total PSS), zero Gradle bloat, zero ads, zero telemetry/Firebase.
-- **Clean 5-Column TV App Grid**: Automatically lists all `LEANBACK_LAUNCHER` apps with banners, smooth focus scaling, live clock, and direct Android Settings access.
+- **Ultra-Low Footprint**: ~50 KB compiled APK, ~1.4 MB Java heap (~48 MB total PSS), zero Gradle bloat, zero ads, zero telemetry/Firebase.
 
 ## Requirements
 

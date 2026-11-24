@@ -1,18 +1,18 @@
 <?xml version="1.0" encoding="utf-8"?>
 <vector xmlns:android="http://schemas.android.com/apk/res/android"
-    android:width="48dp"
-    android:height="48dp"
+    android:width="32dp"
+    android:height="32dp"
     android:viewportWidth="24"
     android:viewportHeight="24">
     <!-- DisplayPort connector silhouette with notched corner -->
     <path
         android:fillColor="#00000000"
-        android:strokeColor="#E2E8F0"
-        android:strokeWidth="1.8"
+        android:strokeColor="#F4F6FA"
+        android:strokeWidth="1.75"
         android:strokeLineJoin="round"
         android:pathData="M3,7 L21,7 L21,17 L6,17 L3,14 Z" />
     <!-- Inner pin bar -->
     <path
-        android:fillColor="#7AA2F7"
-        android:pathData="M6.5,10.5 L18.5,10.5 L18.5,12.7 L6.5,12.7 Z" />
+        android:fillColor="#93C5FD"
+        android:pathData="M6.5,10.6 L18.5,10.6 L18.5,12.6 L6.5,12.6 Z" />
 </vector>

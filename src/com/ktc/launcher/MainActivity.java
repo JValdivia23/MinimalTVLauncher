@@ -9,6 +9,8 @@ import android.content.pm.PackageManager;
 import android.content.pm.ResolveInfo;
 import android.graphics.Color;
 import android.graphics.Outline;
+import android.graphics.PorterDuff;
+import android.graphics.Rect;
 import android.graphics.Typeface;
 import android.graphics.drawable.Drawable;
 import android.os.Bundle;
@@ -16,13 +18,19 @@ import android.os.Handler;
 import android.os.Looper;
 import android.os.SystemClock;
 import android.provider.Settings;
+import android.text.SpannableString;
+import android.text.Spanned;
 import android.text.TextUtils;
+import android.text.style.ForegroundColorSpan;
+import android.text.style.RelativeSizeSpan;
 import android.util.TypedValue;
 import android.view.Gravity;
 import android.view.KeyEvent;
 import android.view.View;
 import android.view.ViewGroup;
 import android.view.ViewOutlineProvider;
+import android.view.animation.PathInterpolator;
+import android.widget.FrameLayout;
 import android.widget.ImageView;
 import android.widget.LinearLayout;
 import android.widget.ScrollView;
@@ -40,29 +48,49 @@ import java.util.Locale;
 import java.util.Set;
 
 /**
- * Ultra-lightweight, zero-bloat open-source launcher built specifically for the
+ * Ultra-lightweight, zero-bloat Obsidian Spatial launcher built for the
  * KTC A32Q8 (Realtek RTD2851F) Smart Monitor.
  *
  * Features:
- * - Native DisplayPort (default focus), USB-C, and HDMI 1 hardware input cards
- * - Boot target cycle pill (DP -> USB-C -> HDMI 1 -> OFF) + long-press on any input card
- * - Clean 5-column TV apps grid with rounded banners, zero clipping, and smooth D-pad focus
- * - Live clock, direct Android Settings shortcut, zero telemetry, ~38 MB total PSS footprint
+ * - Zero-blur dynamic ambient radial backlight that shifts smoothly with the focused tile
+ * - Frosted obsidian glass utility capsule (Radar, Sleep Timer, Auto-Boot target, Settings)
+ * - Sleek specular hardware source dock (DisplayPort, USB-C, HDMI 1, All Inputs) with live LED & BOOT badge
+ * - Full-bleed 16:9 spatial app tiles with luminous specular focus rings, native colored GPU shadows, and floating labels
  */
 public class MainActivity extends Activity {
 
+    private static final PathInterpolator FOCUS_EASE = new PathInterpolator(0.22f, 1f, 0.36f, 1f);
+    private static final long FOCUS_ANIM_MS = 195L;
+
+    private static final int ACCENT_DP = 0xFF60A5FA;
+    private static final int ACCENT_USBC = 0xFF34D399;
+    private static final int ACCENT_HDMI = 0xFFA78BFA;
+    private static final int ACCENT_OSD = 0xFF94A3B8;
+    private static final int ACCENT_RADAR = 0xFF38BDF8;
+    private static final int ACCENT_SLEEP = 0xFFA78BFA;
+    private static final int ACCENT_BOOT = 0xFF34D399;
+    private static final int ACCENT_SETTINGS = 0xFF94A3B8;
+
     private static boolean coldBootAutoSwitchAttempted = false;
 
+    private FrameLayout rootFrame;
+    private AmbientBackdropDrawable ambientBackdrop;
     private LinearLayout inputsRow;
     private LinearLayout appsGridContainer;
     private TextView clockView;
     private TextView dateView;
+
     private LinearLayout radarButton;
     private LinearLayout sleepButton;
+    private ImageView sleepIconView;
     private TextView sleepLabelView;
-    private TextView autoBootButton;
-    private TextView settingsButton;
+    private LinearLayout autoBootButton;
+    private ImageView autoBootIconView;
+    private TextView autoBootLabelView;
+    private LinearLayout settingsButton;
+
     private View firstInputCard;
+    private final int[] locBuf = new int[2];
 
     private final Handler clockHandler = new Handler(Looper.getMainLooper());
     private final SimpleDateFormat timeFormat = new SimpleDateFormat("h:mm a", Locale.getDefault());
@@ -91,7 +119,7 @@ public class MainActivity extends Activity {
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         buildUi();
-        refreshInputsRow();
+        refreshInputsRow(-1);
         refreshAppsGrid();
         maybeAutoSwitchOnColdBoot();
 
@@ -108,9 +136,10 @@ public class MainActivity extends Activity {
         super.onResume();
         updateClock();
         updateSleepPill();
+        updateAutoBootPill();
         clockHandler.removeCallbacks(clockTick);
         clockHandler.post(clockTick);
-        refreshInputsRow();
+        refreshInputsRow(-1);
         if (firstInputCard != null) {
             firstInputCard.requestFocus();
         }
@@ -133,7 +162,7 @@ public class MainActivity extends Activity {
 
     @Override
     public void onBackPressed() {
-        // Pressing Back on home focuses DisplayPort card instead of exiting launcher
+        // Pressing Back on home returns focus cleanly to the primary source card
         if (firstInputCard != null) {
             firstInputCard.requestFocus();
         }
@@ -151,7 +180,6 @@ public class MainActivity extends Activity {
     private void maybeAutoSwitchOnColdBoot() {
         if (coldBootAutoSwitchAttempted) return;
         coldBootAutoSwitchAttempted = true;
-        // If Android just booted (< 90s uptime) and auto-boot is ON, switch straight to chosen input.
         if (SystemClock.elapsedRealtime() < 90_000L && InputManagerHelper.isAutoBootDpEnabled(this)) {
             final String targetId = InputManagerHelper.getDefaultInputId(this);
             clockHandler.postDelayed(new Runnable() {
@@ -164,9 +192,17 @@ public class MainActivity extends Activity {
     }
 
     private void buildUi() {
+        rootFrame = new FrameLayout(this);
+        ambientBackdrop = new AmbientBackdropDrawable();
+        ambientBackdrop.setImmediate(ACCENT_DP, 0.20f, 0.28f);
+        rootFrame.setBackground(ambientBackdrop);
+        rootFrame.setClipChildren(false);
+        rootFrame.setClipToPadding(false);
+
         ScrollView scrollView = new ScrollView(this);
         scrollView.setFillViewport(true);
         scrollView.setVerticalScrollBarEnabled(false);
+        scrollView.setOverScrollMode(View.OVER_SCROLL_NEVER);
         scrollView.setClipToPadding(false);
         scrollView.setClipChildren(false);
 
@@ -174,9 +210,9 @@ public class MainActivity extends Activity {
         root.setOrientation(LinearLayout.VERTICAL);
         root.setClipToPadding(false);
         root.setClipChildren(false);
-        root.setPadding(dp(48), dp(26), dp(48), dp(52));
+        root.setPadding(dp(48), dp(26), dp(48), dp(54));
 
-        // --- TOP HEADER BAR ---
+        // --- QUIET SPATIAL HEADER BAR ---
         LinearLayout header = new LinearLayout(this);
         header.setOrientation(LinearLayout.HORIZONTAL);
         header.setGravity(Gravity.CENTER_VERTICAL);
@@ -184,175 +220,193 @@ public class MainActivity extends Activity {
         header.setClipChildren(false);
         LinearLayout.LayoutParams headerLp = new LinearLayout.LayoutParams(
                 ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT);
-        headerLp.bottomMargin = dp(20);
+        headerLp.bottomMargin = dp(24);
         root.addView(header, headerLp);
 
-        // Left: Title + Monitor label
+        // Left: Refined hardware identity
         LinearLayout titleCol = new LinearLayout(this);
         titleCol.setOrientation(LinearLayout.VERTICAL);
+
         TextView brand = new TextView(this);
         brand.setText("KTC A32Q8");
-        brand.setTextColor(Color.parseColor("#E2E8F0"));
-        brand.setTextSize(TypedValue.COMPLEX_UNIT_SP, 25);
-        brand.setTypeface(Typeface.create("sans-serif-medium", Typeface.BOLD));
+        brand.setTextColor(0xF0F1F5F9);
+        brand.setTextSize(TypedValue.COMPLEX_UNIT_SP, 20);
+        brand.setLetterSpacing(0.01f);
+        brand.setTypeface(Typeface.create("sans-serif-medium", Typeface.NORMAL));
         titleCol.addView(brand);
 
         TextView sub = new TextView(this);
         sub.setText("Open Smart Monitor");
-        sub.setTextColor(Color.parseColor("#7E8CA6"));
-        sub.setTextSize(TypedValue.COMPLEX_UNIT_SP, 12);
-        titleCol.addView(sub);
+        sub.setTextColor(0x5CFFFFFF);
+        sub.setTextSize(TypedValue.COMPLEX_UNIT_SP, 11);
+        sub.setLetterSpacing(0.02f);
+        LinearLayout.LayoutParams subLp = new LinearLayout.LayoutParams(
+                ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT);
+        subLp.topMargin = dp(1);
+        titleCol.addView(sub, subLp);
 
         header.addView(titleCol, new LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f));
 
-        // Right controls: Radar screensaver, Sleep timer (Zzz), Boot target cycle pill, Android Settings, Clock
-        radarButton = createRadarPillButton();
-        radarButton.setId(View.generateViewId());
-        header.addView(radarButton, pillLp(dp(12)));
+        // Center-Right: Unified frosted obsidian glass utility capsule
+        LinearLayout controlCapsule = new LinearLayout(this);
+        controlCapsule.setOrientation(LinearLayout.HORIZONTAL);
+        controlCapsule.setGravity(Gravity.CENTER_VERTICAL);
+        controlCapsule.setBackgroundResource(R.drawable.glass_capsule_bg);
+        controlCapsule.setPadding(dp(5), dp(4), dp(5), dp(4));
+        controlCapsule.setClipChildren(false);
+        controlCapsule.setClipToPadding(false);
 
-        sleepButton = createSleepPillButton();
+        radarButton = createRadarChip();
+        radarButton.setId(View.generateViewId());
+        controlCapsule.addView(radarButton);
+
+        controlCapsule.addView(createCapsuleDivider());
+
+        sleepButton = createSleepChip();
         sleepButton.setId(View.generateViewId());
         updateSleepPill();
-        header.addView(sleepButton, pillLp(dp(12)));
+        controlCapsule.addView(sleepButton);
 
-        autoBootButton = createPillButton("", new View.OnClickListener() {
-            @Override
-            public void onClick(View v) {
-                String next = InputManagerHelper.cycleBootTarget(MainActivity.this);
-                updateAutoBootPill();
-                refreshInputsRow();
-                Toast.makeText(
-                        MainActivity.this,
-                        "OFF".equals(next) ? "Auto-boot input: OFF" : "Auto-boot input: " + next,
-                        Toast.LENGTH_SHORT
-                ).show();
-            }
-        });
+        controlCapsule.addView(createCapsuleDivider());
+
+        autoBootButton = createAutoBootChip();
         autoBootButton.setId(View.generateViewId());
         updateAutoBootPill();
-        header.addView(autoBootButton, pillLp(dp(12)));
+        controlCapsule.addView(autoBootButton);
 
-        settingsButton = createPillButton("Settings", new View.OnClickListener() {
-            @Override
-            public void onClick(View v) {
-                try {
-                    Intent i = new Intent(Settings.ACTION_SETTINGS);
-                    i.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
-                    startActivity(i);
-                } catch (Throwable t) {
-                    Toast.makeText(MainActivity.this, "Cannot open Settings", Toast.LENGTH_SHORT).show();
-                }
-            }
-        });
+        controlCapsule.addView(createCapsuleDivider());
+
+        settingsButton = createSettingsChip();
         settingsButton.setId(View.generateViewId());
-        header.addView(settingsButton, pillLp(dp(22)));
+        controlCapsule.addView(settingsButton);
 
+        LinearLayout.LayoutParams capsuleLp = new LinearLayout.LayoutParams(
+                ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT);
+        capsuleLp.rightMargin = dp(24);
+        header.addView(controlCapsule, capsuleLp);
+
+        // Far Right: Editorial tabular clock
         LinearLayout clockCol = new LinearLayout(this);
         clockCol.setOrientation(LinearLayout.VERTICAL);
         clockCol.setGravity(Gravity.END);
 
         clockView = new TextView(this);
-        clockView.setTextColor(Color.parseColor("#F1F5F9"));
-        clockView.setTextSize(TypedValue.COMPLEX_UNIT_SP, 25);
+        clockView.setTextColor(0xFFF8FAFC);
+        clockView.setTextSize(TypedValue.COMPLEX_UNIT_SP, 29);
+        clockView.setLetterSpacing(-0.02f);
+        clockView.setFontFeatureSettings("tnum");
         clockView.setTypeface(Typeface.create("sans-serif-light", Typeface.NORMAL));
         clockCol.addView(clockView);
 
         dateView = new TextView(this);
-        dateView.setTextColor(Color.parseColor("#8A99B5"));
-        dateView.setTextSize(TypedValue.COMPLEX_UNIT_SP, 12);
+        dateView.setTextColor(0x66FFFFFF);
+        dateView.setTextSize(TypedValue.COMPLEX_UNIT_SP, 11.5f);
+        dateView.setLetterSpacing(0.02f);
         clockCol.addView(dateView);
 
         header.addView(clockCol);
 
-        // --- INPUTS SECTION ---
-        root.addView(createSectionHeader("INPUTS"), sectionLp());
+        // --- SOURCES SECTION ---
+        root.addView(createSectionHeader("Sources"), sectionLp(dp(10)));
 
         inputsRow = new LinearLayout(this);
         inputsRow.setOrientation(LinearLayout.HORIZONTAL);
         inputsRow.setClipToPadding(false);
         inputsRow.setClipChildren(false);
-        inputsRow.setPadding(0, dp(4), 0, dp(8));
+        inputsRow.setPadding(0, dp(2), 0, dp(4));
 
         LinearLayout.LayoutParams inputsRowLp = new LinearLayout.LayoutParams(
                 ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT);
-        inputsRowLp.bottomMargin = dp(18);
+        inputsRowLp.bottomMargin = dp(24);
         root.addView(inputsRow, inputsRowLp);
 
         // --- APPS SECTION ---
-        root.addView(createSectionHeader("APPS"), sectionLp());
+        root.addView(createSectionHeader("Apps"), sectionLp(dp(12)));
 
         appsGridContainer = new LinearLayout(this);
         appsGridContainer.setOrientation(LinearLayout.VERTICAL);
         appsGridContainer.setClipToPadding(false);
         appsGridContainer.setClipChildren(false);
-        appsGridContainer.setPadding(0, dp(4), 0, dp(16));
+        appsGridContainer.setPadding(0, dp(2), 0, dp(20));
         root.addView(appsGridContainer, new LinearLayout.LayoutParams(
                 ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT));
 
         scrollView.addView(root);
-        setContentView(scrollView);
+        rootFrame.addView(scrollView, new FrameLayout.LayoutParams(
+                ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT));
+        setContentView(rootFrame);
     }
 
-    private LinearLayout createRadarPillButton() {
-        LinearLayout pill = new LinearLayout(this);
-        pill.setOrientation(LinearLayout.HORIZONTAL);
-        pill.setGravity(Gravity.CENTER_VERTICAL);
-        pill.setBackgroundResource(R.drawable.pill_bg);
-        pill.setPadding(dp(14), dp(8), dp(16), dp(8));
-        pill.setFocusable(true);
-        pill.setClickable(true);
+    private View createCapsuleDivider() {
+        View divider = new View(this);
+        divider.setBackgroundColor(0x1AFFFFFF);
+        LinearLayout.LayoutParams lp = new LinearLayout.LayoutParams(dp(1), dp(14));
+        lp.leftMargin = dp(2);
+        lp.rightMargin = dp(2);
+        divider.setLayoutParams(lp);
+        return divider;
+    }
+
+    private LinearLayout createBaseGlassChip(int padStartDp, int padEndDp) {
+        LinearLayout chip = new LinearLayout(this);
+        chip.setOrientation(LinearLayout.HORIZONTAL);
+        chip.setGravity(Gravity.CENTER_VERTICAL);
+        chip.setBackgroundResource(R.drawable.glass_chip_bg);
+        chip.setPadding(dp(padStartDp), dp(7), dp(padEndDp), dp(7));
+        chip.setFocusable(true);
+        chip.setClickable(true);
+        applyRoundedOutline(chip, dp(20), false);
+        return chip;
+    }
+
+    private LinearLayout createRadarChip() {
+        LinearLayout chip = createBaseGlassChip(13, 14);
 
         ImageView icon = new ImageView(this);
         icon.setImageResource(R.drawable.ic_radar);
         icon.setScaleType(ImageView.ScaleType.FIT_CENTER);
-        LinearLayout.LayoutParams iconLp = new LinearLayout.LayoutParams(dp(18), dp(18));
+        LinearLayout.LayoutParams iconLp = new LinearLayout.LayoutParams(dp(16), dp(16));
         iconLp.rightMargin = dp(7);
-        pill.addView(icon, iconLp);
+        chip.addView(icon, iconLp);
 
         TextView label = new TextView(this);
         label.setText("Radar");
-        label.setTextColor(Color.parseColor("#7DCFFF"));
-        label.setTextSize(TypedValue.COMPLEX_UNIT_SP, 13);
-        label.setTypeface(Typeface.create("sans-serif-medium", Typeface.BOLD));
-        pill.addView(label);
+        label.setTextColor(0xD9FFFFFF);
+        label.setTextSize(TypedValue.COMPLEX_UNIT_SP, 12.5f);
+        label.setTypeface(Typeface.create("sans-serif-medium", Typeface.NORMAL));
+        chip.addView(label);
 
-        attachFocusScale(pill);
+        attachChipFocusEffect(chip, ACCENT_RADAR);
 
-        pill.setOnClickListener(new View.OnClickListener() {
+        chip.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View v) {
                 Intent i = new Intent(MainActivity.this, RadarActivity.class);
                 startActivity(i);
             }
         });
-
-        return pill;
+        return chip;
     }
 
-    private LinearLayout createSleepPillButton() {
-        LinearLayout pill = new LinearLayout(this);
-        pill.setOrientation(LinearLayout.HORIZONTAL);
-        pill.setGravity(Gravity.CENTER_VERTICAL);
-        pill.setBackgroundResource(R.drawable.pill_bg);
-        pill.setPadding(dp(14), dp(8), dp(16), dp(8));
-        pill.setFocusable(true);
-        pill.setClickable(true);
+    private LinearLayout createSleepChip() {
+        LinearLayout chip = createBaseGlassChip(13, 14);
 
-        ImageView icon = new ImageView(this);
-        icon.setImageResource(R.drawable.ic_sleep);
-        icon.setScaleType(ImageView.ScaleType.FIT_CENTER);
-        LinearLayout.LayoutParams iconLp = new LinearLayout.LayoutParams(dp(18), dp(18));
-        iconLp.rightMargin = dp(7);
-        pill.addView(icon, iconLp);
+        sleepIconView = new ImageView(this);
+        sleepIconView.setImageResource(R.drawable.ic_sleep);
+        sleepIconView.setScaleType(ImageView.ScaleType.FIT_CENTER);
+        LinearLayout.LayoutParams iconLp = new LinearLayout.LayoutParams(dp(15), dp(15));
+        iconLp.rightMargin = dp(6);
+        chip.addView(sleepIconView, iconLp);
 
         sleepLabelView = new TextView(this);
-        sleepLabelView.setTextSize(TypedValue.COMPLEX_UNIT_SP, 13);
-        sleepLabelView.setTypeface(Typeface.create("sans-serif-medium", Typeface.BOLD));
-        pill.addView(sleepLabelView);
+        sleepLabelView.setTextSize(TypedValue.COMPLEX_UNIT_SP, 12.5f);
+        sleepLabelView.setFontFeatureSettings("tnum");
+        sleepLabelView.setTypeface(Typeface.create("sans-serif-medium", Typeface.NORMAL));
+        chip.addView(sleepLabelView);
 
-        attachFocusScale(pill);
+        attachChipFocusEffect(chip, ACCENT_SLEEP);
 
-        pill.setOnClickListener(new View.OnClickListener() {
+        chip.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View v) {
                 int mins = SleepTimerHelper.cyclePreset(MainActivity.this);
@@ -367,7 +421,7 @@ public class MainActivity extends Activity {
             }
         });
 
-        pill.setOnLongClickListener(new View.OnLongClickListener() {
+        chip.setOnLongClickListener(new View.OnLongClickListener() {
             @Override
             public boolean onLongClick(View v) {
                 if (SleepTimerHelper.isActive(MainActivity.this)) {
@@ -380,45 +434,129 @@ public class MainActivity extends Activity {
                 return true;
             }
         });
+        return chip;
+    }
 
-        return pill;
+    private LinearLayout createAutoBootChip() {
+        LinearLayout chip = createBaseGlassChip(13, 14);
+
+        autoBootIconView = new ImageView(this);
+        autoBootIconView.setImageResource(R.drawable.ic_boot);
+        autoBootIconView.setScaleType(ImageView.ScaleType.FIT_CENTER);
+        LinearLayout.LayoutParams iconLp = new LinearLayout.LayoutParams(dp(15), dp(15));
+        iconLp.rightMargin = dp(6);
+        chip.addView(autoBootIconView, iconLp);
+
+        autoBootLabelView = new TextView(this);
+        autoBootLabelView.setTextSize(TypedValue.COMPLEX_UNIT_SP, 12.5f);
+        autoBootLabelView.setTypeface(Typeface.create("sans-serif-medium", Typeface.NORMAL));
+        chip.addView(autoBootLabelView);
+
+        attachChipFocusEffect(chip, ACCENT_BOOT);
+
+        chip.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View v) {
+                String next = InputManagerHelper.cycleBootTarget(MainActivity.this);
+                updateAutoBootPill();
+                refreshInputsRow(-1);
+                Toast.makeText(
+                        MainActivity.this,
+                        "OFF".equals(next) ? "Auto-boot input: OFF" : "Auto-boot input: " + next,
+                        Toast.LENGTH_SHORT
+                ).show();
+            }
+        });
+        return chip;
+    }
+
+    private LinearLayout createSettingsChip() {
+        LinearLayout chip = createBaseGlassChip(12, 12);
+        chip.setContentDescription("Settings");
+
+        ImageView icon = new ImageView(this);
+        icon.setImageResource(R.drawable.ic_settings);
+        icon.setScaleType(ImageView.ScaleType.FIT_CENTER);
+        icon.setColorFilter(0xD0FFFFFF, PorterDuff.Mode.SRC_IN);
+        chip.addView(icon, new LinearLayout.LayoutParams(dp(17), dp(17)));
+
+        attachChipFocusEffect(chip, ACCENT_SETTINGS);
+
+        chip.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View v) {
+                try {
+                    Intent i = new Intent(Settings.ACTION_SETTINGS);
+                    i.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
+                    startActivity(i);
+                } catch (Throwable t) {
+                    Toast.makeText(MainActivity.this, "Cannot open Settings", Toast.LENGTH_SHORT).show();
+                }
+            }
+        });
+        return chip;
     }
 
     private void updateSleepPill() {
         if (sleepLabelView == null) return;
         boolean active = SleepTimerHelper.isActive(this);
         sleepLabelView.setText(SleepTimerHelper.formatPillLabel(this));
-        sleepLabelView.setTextColor(active
-                ? Color.parseColor("#BB9AF7")
-                : Color.parseColor("#CBD5E1"));
+        sleepLabelView.setTextColor(active ? 0xFFC4B5FD : 0xCCFFFFFF);
+        if (sleepIconView != null) {
+            sleepIconView.setColorFilter(active ? 0xFFC4B5FD : 0xCCFFFFFF, PorterDuff.Mode.SRC_IN);
+        }
     }
 
     private void updateAutoBootPill() {
+        if (autoBootLabelView == null) return;
         String target = InputManagerHelper.getBootTargetShortName(this);
-        if ("OFF".equals(target)) {
-            autoBootButton.setText("Boot: OFF");
-            autoBootButton.setTextColor(Color.parseColor("#94A3B8"));
+        boolean off = "OFF".equals(target);
+        if (off) {
+            autoBootLabelView.setText("Boot · Off");
+            autoBootLabelView.setTextColor(0x88FFFFFF);
+            if (autoBootIconView != null) {
+                autoBootIconView.setColorFilter(0x88FFFFFF, PorterDuff.Mode.SRC_IN);
+            }
         } else {
-            autoBootButton.setText("Boot -> " + target);
-            autoBootButton.setTextColor(Color.parseColor("#9ECE6A"));
+            autoBootLabelView.setText("Boot · " + target);
+            autoBootLabelView.setTextColor(0xFF86EFAC);
+            if (autoBootIconView != null) {
+                autoBootIconView.setColorFilter(0xFF34D399, PorterDuff.Mode.SRC_IN);
+            }
         }
     }
 
     private void updateClock() {
         Date now = new Date();
-        if (clockView != null) clockView.setText(timeFormat.format(now));
-        if (dateView != null) dateView.setText(dateFormat.format(now));
+        if (clockView != null) {
+            String raw = timeFormat.format(now);
+            int spaceIdx = raw.lastIndexOf(' ');
+            if (spaceIdx > 0 && spaceIdx < raw.length() - 1) {
+                SpannableString ss = new SpannableString(raw);
+                ss.setSpan(new RelativeSizeSpan(0.46f), spaceIdx + 1, raw.length(), Spanned.SPAN_EXCLUSIVE_EXCLUSIVE);
+                ss.setSpan(new ForegroundColorSpan(0x75FFFFFF), spaceIdx + 1, raw.length(), Spanned.SPAN_EXCLUSIVE_EXCLUSIVE);
+                clockView.setText(ss);
+            } else {
+                clockView.setText(raw);
+            }
+        }
+        if (dateView != null) {
+            dateView.setText(dateFormat.format(now));
+        }
     }
 
-    private void refreshInputsRow() {
+    private void refreshInputsRow(int restoreFocusIdx) {
         inputsRow.removeAllViews();
         firstInputCard = null;
+        View restoreTarget = null;
 
         List<InputManagerHelper.InputItem> inputs = InputManagerHelper.loadHardwareInputs(this);
         for (int i = 0; i < inputs.size(); i++) {
+            final int index = i;
             final InputManagerHelper.InputItem item = inputs.get(i);
-            View card = createInputCard(item);
+            View card = createInputCard(item, index);
             card.setId(View.generateViewId());
+
             if (i == 0) {
                 firstInputCard = card;
                 card.setNextFocusUpId(radarButton.getId());
@@ -430,12 +568,16 @@ public class MainActivity extends Activity {
                 card.setNextFocusUpId(autoBootButton.getId());
                 autoBootButton.setNextFocusDownId(card.getId());
             }
-            LinearLayout.LayoutParams lp = new LinearLayout.LayoutParams(0, dp(96), 1f);
-            lp.rightMargin = dp(16);
+
+            if (i == restoreFocusIdx) {
+                restoreTarget = card;
+            }
+
+            LinearLayout.LayoutParams lp = new LinearLayout.LayoutParams(0, dp(74), 1f);
+            lp.rightMargin = dp(14);
             inputsRow.addView(card, lp);
         }
 
-        // Flush right-aligned "All Inputs" utility card with matching monitor icon
         View popupCard = createUtilityCard("All Inputs", "Monitor OSD", R.drawable.ic_inputs_osd, new View.OnClickListener() {
             @Override
             public void onClick(View v) {
@@ -445,57 +587,112 @@ public class MainActivity extends Activity {
         popupCard.setId(View.generateViewId());
         popupCard.setNextFocusUpId(settingsButton.getId());
         settingsButton.setNextFocusDownId(popupCard.getId());
-        LinearLayout.LayoutParams popupLp = new LinearLayout.LayoutParams(0, dp(96), 0.85f);
+        LinearLayout.LayoutParams popupLp = new LinearLayout.LayoutParams(0, dp(74), 0.80f);
         inputsRow.addView(popupCard, popupLp);
 
-        if (firstInputCard != null && getCurrentFocus() == null) {
+        if (restoreTarget != null) {
+            restoreTarget.requestFocus();
+        } else if (firstInputCard != null && getCurrentFocus() == null) {
             firstInputCard.requestFocus();
         }
     }
 
-    private View createInputCard(final InputManagerHelper.InputItem item) {
+    private int accentForInput(InputManagerHelper.InputItem item) {
+        if (item.iconRes == R.drawable.ic_dp) return ACCENT_DP;
+        if (item.iconRes == R.drawable.ic_usbc) return ACCENT_USBC;
+        if (item.iconRes == R.drawable.ic_hdmi) return ACCENT_HDMI;
+        return ACCENT_OSD;
+    }
+
+    private String cleanSpecSubtitle(String rawSubtitle) {
+        if (rawSubtitle == null) return "";
+        return rawSubtitle.replace(" • Active", "").replace("• Active", "").trim();
+    }
+
+    private View createInputCard(final InputManagerHelper.InputItem item, final int cardIndex) {
         LinearLayout card = new LinearLayout(this);
         card.setOrientation(LinearLayout.HORIZONTAL);
         card.setGravity(Gravity.CENTER_VERTICAL);
-        card.setBackgroundResource(R.drawable.card_bg);
-        card.setPadding(dp(18), dp(12), dp(16), dp(12));
+        card.setBackgroundResource(R.drawable.source_tile_bg);
+        card.setPadding(dp(12), dp(10), dp(12), dp(10));
         card.setFocusable(true);
         card.setFocusableInTouchMode(false);
         card.setClickable(true);
+        applyRoundedOutline(card, dp(16), false);
 
+        // Subtle glass icon well
+        FrameLayout iconWell = new FrameLayout(this);
+        iconWell.setBackgroundResource(R.drawable.icon_well_bg);
         ImageView icon = new ImageView(this);
         icon.setImageResource(item.iconRes);
         icon.setScaleType(ImageView.ScaleType.FIT_CENTER);
-        LinearLayout.LayoutParams iconLp = new LinearLayout.LayoutParams(dp(42), dp(42));
-        iconLp.rightMargin = dp(14);
-        card.addView(icon, iconLp);
+        FrameLayout.LayoutParams iconLp = new FrameLayout.LayoutParams(dp(24), dp(24), Gravity.CENTER);
+        iconWell.addView(icon, iconLp);
 
+        LinearLayout.LayoutParams wellLp = new LinearLayout.LayoutParams(dp(40), dp(40));
+        wellLp.rightMargin = dp(10);
+        card.addView(iconWell, wellLp);
+
+        // Center text stack
         LinearLayout textCol = new LinearLayout(this);
         textCol.setOrientation(LinearLayout.VERTICAL);
 
         TextView title = new TextView(this);
         title.setText(item.label);
-        title.setTextColor(Color.parseColor("#F1F5F9"));
-        title.setTextSize(TypedValue.COMPLEX_UNIT_SP, 16);
-        title.setTypeface(Typeface.create("sans-serif-medium", Typeface.BOLD));
+        title.setTextColor(0xFFF4F6FA);
+        title.setTextSize(TypedValue.COMPLEX_UNIT_SP, 15);
+        title.setTypeface(Typeface.create("sans-serif-medium", Typeface.NORMAL));
         title.setSingleLine(true);
+        title.setEllipsize(TextUtils.TruncateAt.END);
         textCol.addView(title);
 
+        LinearLayout statusRow = new LinearLayout(this);
+        statusRow.setOrientation(LinearLayout.HORIZONTAL);
+        statusRow.setGravity(Gravity.CENTER_VERTICAL);
+        LinearLayout.LayoutParams statusRowLp = new LinearLayout.LayoutParams(
+                ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT);
+        statusRowLp.topMargin = dp(2);
+
+        String spec = cleanSpecSubtitle(item.subtitle);
+        if (item.active) {
+            View led = new View(this);
+            led.setBackgroundResource(R.drawable.dot_active);
+            LinearLayout.LayoutParams ledLp = new LinearLayout.LayoutParams(dp(9), dp(9));
+            ledLp.rightMargin = dp(5);
+            statusRow.addView(led, ledLp);
+        }
+
         TextView sub = new TextView(this);
+        sub.setText(item.active ? (spec.isEmpty() ? "Active" : spec + " · Active") : spec);
+        sub.setTextColor(item.active ? 0xFFA7F3D0 : 0x6EFFFFFF);
+        sub.setTextSize(TypedValue.COMPLEX_UNIT_SP, 11f);
+        sub.setSingleLine(true);
+        sub.setEllipsize(TextUtils.TruncateAt.END);
+        statusRow.addView(sub);
+
+        textCol.addView(statusRow, statusRowLp);
+        card.addView(textCol, new LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f));
+
+        // Clean right-aligned BOOT micro-badge
         boolean isBootDefault = InputManagerHelper.isAutoBootDpEnabled(this)
                 && item.inputId.equals(InputManagerHelper.getDefaultInputId(this));
-        String subText = isBootDefault ? (item.subtitle + " • Boot") : item.subtitle;
-        sub.setText(subText);
-        sub.setTextColor(item.active
-                ? Color.parseColor("#9ECE6A")
-                : (isBootDefault ? Color.parseColor("#7AA2F7") : Color.parseColor("#8A99B5")));
-        sub.setTextSize(TypedValue.COMPLEX_UNIT_SP, 11.5f);
-        sub.setSingleLine(true);
-        textCol.addView(sub);
+        if (isBootDefault) {
+            TextView bootBadge = new TextView(this);
+            bootBadge.setText("BOOT");
+            bootBadge.setTextColor(0xD4FFFFFF);
+            bootBadge.setTextSize(TypedValue.COMPLEX_UNIT_SP, 8.5f);
+            bootBadge.setLetterSpacing(0.10f);
+            bootBadge.setTypeface(Typeface.create("sans-serif-medium", Typeface.NORMAL));
+            bootBadge.setBackgroundResource(R.drawable.badge_boot_bg);
+            bootBadge.setPadding(dp(6), dp(2), dp(6), dp(2));
+            LinearLayout.LayoutParams badgeLp = new LinearLayout.LayoutParams(
+                    ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT);
+            badgeLp.leftMargin = dp(6);
+            card.addView(bootBadge, badgeLp);
+        }
 
-        card.addView(textCol);
-
-        attachFocusScale(card);
+        final int accent = accentForInput(item);
+        attachSourceFocusEffect(card, accent);
 
         card.setOnClickListener(new View.OnClickListener() {
             @Override
@@ -510,7 +707,7 @@ public class MainActivity extends Activity {
                 InputManagerHelper.setDefaultInputId(MainActivity.this, item.inputId);
                 InputManagerHelper.setAutoBootDpEnabled(MainActivity.this, true);
                 updateAutoBootPill();
-                refreshInputsRow();
+                refreshInputsRow(cardIndex);
                 Toast.makeText(MainActivity.this, "Auto-boot input set to " + item.label, Toast.LENGTH_SHORT).show();
                 return true;
             }
@@ -523,39 +720,49 @@ public class MainActivity extends Activity {
         LinearLayout card = new LinearLayout(this);
         card.setOrientation(LinearLayout.HORIZONTAL);
         card.setGravity(Gravity.CENTER_VERTICAL);
-        card.setBackgroundResource(R.drawable.card_bg);
-        card.setPadding(dp(16), dp(12), dp(14), dp(12));
+        card.setBackgroundResource(R.drawable.source_tile_bg);
+        card.setPadding(dp(12), dp(10), dp(12), dp(10));
         card.setFocusable(true);
         card.setClickable(true);
+        applyRoundedOutline(card, dp(16), false);
 
+        FrameLayout iconWell = new FrameLayout(this);
+        iconWell.setBackgroundResource(R.drawable.icon_well_bg);
         ImageView icon = new ImageView(this);
         icon.setImageResource(iconRes);
         icon.setScaleType(ImageView.ScaleType.FIT_CENTER);
-        LinearLayout.LayoutParams iconLp = new LinearLayout.LayoutParams(dp(38), dp(38));
-        iconLp.rightMargin = dp(12);
-        card.addView(icon, iconLp);
+        iconWell.addView(icon, new FrameLayout.LayoutParams(dp(23), dp(23), Gravity.CENTER));
+
+        LinearLayout.LayoutParams wellLp = new LinearLayout.LayoutParams(dp(40), dp(40));
+        wellLp.rightMargin = dp(10);
+        card.addView(iconWell, wellLp);
 
         LinearLayout textCol = new LinearLayout(this);
         textCol.setOrientation(LinearLayout.VERTICAL);
 
         TextView title = new TextView(this);
         title.setText(label);
-        title.setTextColor(Color.parseColor("#CBD5E1"));
-        title.setTextSize(TypedValue.COMPLEX_UNIT_SP, 15);
-        title.setTypeface(Typeface.create("sans-serif-medium", Typeface.BOLD));
+        title.setTextColor(0xE0F1F5F9);
+        title.setTextSize(TypedValue.COMPLEX_UNIT_SP, 14.5f);
+        title.setTypeface(Typeface.create("sans-serif-medium", Typeface.NORMAL));
         title.setSingleLine(true);
+        title.setEllipsize(TextUtils.TruncateAt.END);
         textCol.addView(title);
 
         TextView sub = new TextView(this);
         sub.setText(subtitle);
-        sub.setTextColor(Color.parseColor("#7E8CA6"));
+        sub.setTextColor(0x66FFFFFF);
         sub.setTextSize(TypedValue.COMPLEX_UNIT_SP, 11.5f);
         sub.setSingleLine(true);
-        textCol.addView(sub);
+        sub.setEllipsize(TextUtils.TruncateAt.END);
+        LinearLayout.LayoutParams subLp = new LinearLayout.LayoutParams(
+                ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT);
+        subLp.topMargin = dp(2);
+        textCol.addView(sub, subLp);
 
         card.addView(textCol);
 
-        attachFocusScale(card);
+        attachSourceFocusEffect(card, ACCENT_OSD);
         card.setOnClickListener(clickListener);
         return card;
     }
@@ -566,13 +773,15 @@ public class MainActivity extends Activity {
         final String label;
         final Drawable bannerOrIcon;
         final boolean isBanner;
+        final int accentColor;
 
-        AppEntry(String pkg, String act, String label, Drawable drawable, boolean isBanner) {
+        AppEntry(String pkg, String act, String label, Drawable drawable, boolean isBanner, int accentColor) {
             this.packageName = pkg;
             this.activityName = act;
             this.label = label;
             this.bannerOrIcon = drawable;
             this.isBanner = isBanner;
+            this.accentColor = accentColor;
         }
     }
 
@@ -585,7 +794,7 @@ public class MainActivity extends Activity {
         List<ResolveInfo> resolved = pm.queryIntentActivities(tvIntent, 0);
 
         Set<String> seenPackages = new HashSet<>();
-        // Hide self, Projectivy (if installed), and system Settings (already in header)
+        // Hide self, Projectivy (if installed), and system Settings (already in top capsule)
         seenPackages.add(getPackageName());
         seenPackages.add("com.spocky.projengmenu");
         seenPackages.add("com.android.tv.settings");
@@ -605,8 +814,9 @@ public class MainActivity extends Activity {
             }
             boolean hasBanner = (banner != null);
             Drawable drawable = hasBanner ? banner : ri.loadIcon(pm);
+            int accent = AmbientBackdropDrawable.extractAccentColor(drawable, AmbientBackdropDrawable.DEFAULT_ACCENT);
 
-            apps.add(new AppEntry(pkg, ri.activityInfo.name, label, drawable, hasBanner));
+            apps.add(new AppEntry(pkg, ri.activityInfo.name, label, drawable, hasBanner, accent));
         }
 
         Collections.sort(apps, new Comparator<AppEntry>() {
@@ -626,75 +836,88 @@ public class MainActivity extends Activity {
                 currentRow.setClipChildren(false);
                 LinearLayout.LayoutParams rowLp = new LinearLayout.LayoutParams(
                         ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT);
-                rowLp.bottomMargin = dp(16);
+                rowLp.bottomMargin = dp(18);
                 appsGridContainer.addView(currentRow, rowLp);
             }
 
-            View appCard = createAppCard(apps.get(i));
-            LinearLayout.LayoutParams lp = new LinearLayout.LayoutParams(0, dp(110), 1f);
-            lp.rightMargin = ((i + 1) % columns == 0) ? 0 : dp(16);
-            currentRow.addView(appCard, lp);
+            View appTile = createAppTile(apps.get(i), currentRow);
+            LinearLayout.LayoutParams lp = new LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f);
+            lp.rightMargin = ((i + 1) % columns == 0) ? 0 : dp(18);
+            currentRow.addView(appTile, lp);
         }
 
-        // Pad last row with invisible spacers so card widths stay uniform
+        // Pad last row with invisible spacers so tile widths stay uniform
         int remainder = apps.size() % columns;
         if (remainder != 0 && currentRow != null) {
             for (int j = remainder; j < columns; j++) {
                 View spacer = new View(this);
-                LinearLayout.LayoutParams lp = new LinearLayout.LayoutParams(0, dp(110), 1f);
-                lp.rightMargin = (j == columns - 1) ? 0 : dp(16);
+                LinearLayout.LayoutParams lp = new LinearLayout.LayoutParams(0, dp(90), 1f);
+                lp.rightMargin = (j == columns - 1) ? 0 : dp(18);
                 currentRow.addView(spacer, lp);
             }
         }
     }
 
-    private View createAppCard(final AppEntry app) {
-        LinearLayout card = new LinearLayout(this);
-        card.setOrientation(LinearLayout.VERTICAL);
-        card.setGravity(Gravity.CENTER);
-        card.setBackgroundResource(R.drawable.card_bg);
-        card.setPadding(dp(8), dp(8), dp(8), dp(7));
-        card.setFocusable(true);
-        card.setClickable(true);
+    /**
+     * Builds a full-bleed 16:9 spatial app tile with zero outer card box:
+     * artwork fills the rounded tile edge-to-edge, focus draws a luminous specular glass ring
+     * + native colored GPU drop shadow, and the title floats cleanly below.
+     */
+    private View createAppTile(final AppEntry app, final View parentRow) {
+        LinearLayout container = new LinearLayout(this);
+        container.setOrientation(LinearLayout.VERTICAL);
+        container.setGravity(Gravity.CENTER_HORIZONTAL);
+        container.setFocusable(true);
+        container.setClickable(true);
+        container.setClipChildren(false);
+        container.setClipToPadding(false);
 
-        ImageView img = new ImageView(this);
-        img.setImageDrawable(app.bannerOrIcon);
+        // Full-bleed 16:9 artwork frame
+        final FrameLayout tileBox = new FrameLayout(this);
+        tileBox.setDuplicateParentStateEnabled(true);
+        tileBox.setBackgroundColor(0xFF10131A);
+        applyRoundedOutline(tileBox, dp(13), true);
+        tileBox.setForeground(getDrawable(R.drawable.app_focus_ring));
+
         if (app.isBanner) {
+            ImageView img = new ImageView(this);
+            img.setImageDrawable(app.bannerOrIcon);
             img.setScaleType(ImageView.ScaleType.CENTER_CROP);
-            final float cornerRadius = dp(8);
-            img.setOutlineProvider(new ViewOutlineProvider() {
-                @Override
-                public void getOutline(View view, Outline outline) {
-                    outline.setRoundRect(0, 0, view.getWidth(), view.getHeight(), cornerRadius);
-                }
-            });
-            img.setClipToOutline(true);
-            LinearLayout.LayoutParams imgLp = new LinearLayout.LayoutParams(
-                    ViewGroup.LayoutParams.MATCH_PARENT, dp(68));
-            card.addView(img, imgLp);
+            tileBox.addView(img, new FrameLayout.LayoutParams(
+                    ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT));
         } else {
-            img.setScaleType(ImageView.ScaleType.FIT_CENTER);
-            LinearLayout.LayoutParams imgLp = new LinearLayout.LayoutParams(dp(48), dp(48));
-            imgLp.topMargin = dp(8);
-            imgLp.bottomMargin = dp(6);
-            card.addView(img, imgLp);
+            View tintedBg = new View(this);
+            tintedBg.setBackground(AmbientBackdropDrawable.createIconTileBackdrop(app.accentColor, dp(110)));
+            tileBox.addView(tintedBg, new FrameLayout.LayoutParams(
+                    ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT));
+
+            ImageView icon = new ImageView(this);
+            icon.setImageDrawable(app.bannerOrIcon);
+            icon.setScaleType(ImageView.ScaleType.FIT_CENTER);
+            tileBox.addView(icon, new FrameLayout.LayoutParams(dp(46), dp(46), Gravity.CENTER));
         }
 
-        TextView label = new TextView(this);
+        container.addView(tileBox, new LinearLayout.LayoutParams(
+                ViewGroup.LayoutParams.MATCH_PARENT, dp(90)));
+
+        // Floating title below the tile (muted at rest, illuminates on focus)
+        final TextView label = new TextView(this);
         label.setText(app.label);
-        label.setTextColor(Color.parseColor("#E2E8F0"));
+        label.setTextColor(0xFFF8FAFC);
+        label.setAlpha(0.54f);
         label.setTextSize(TypedValue.COMPLEX_UNIT_SP, 12);
+        label.setTypeface(Typeface.create("sans-serif-medium", Typeface.NORMAL));
         label.setSingleLine(true);
         label.setEllipsize(TextUtils.TruncateAt.END);
         label.setGravity(Gravity.CENTER);
         LinearLayout.LayoutParams labelLp = new LinearLayout.LayoutParams(
                 ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT);
-        labelLp.topMargin = dp(6);
-        card.addView(label, labelLp);
+        labelLp.topMargin = dp(7);
+        container.addView(label, labelLp);
 
-        attachFocusScale(card);
+        attachAppFocusEffect(container, tileBox, label, parentRow, app.accentColor);
 
-        card.setOnClickListener(new View.OnClickListener() {
+        container.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View v) {
                 try {
@@ -718,69 +941,146 @@ public class MainActivity extends Activity {
             }
         });
 
-        return card;
+        return container;
     }
 
     private TextView createSectionHeader(String text) {
         TextView tv = new TextView(this);
         tv.setText(text);
-        tv.setTextColor(Color.parseColor("#7AA2F7"));
-        tv.setTextSize(TypedValue.COMPLEX_UNIT_SP, 12);
-        tv.setLetterSpacing(0.14f);
-        tv.setTypeface(Typeface.create("sans-serif-medium", Typeface.BOLD));
+        tv.setTextColor(0x6BFFFFFF);
+        tv.setTextSize(TypedValue.COMPLEX_UNIT_SP, 12.5f);
+        tv.setLetterSpacing(0.03f);
+        tv.setTypeface(Typeface.create("sans-serif-medium", Typeface.NORMAL));
         return tv;
     }
 
-    private LinearLayout.LayoutParams sectionLp() {
+    private LinearLayout.LayoutParams sectionLp(int bottomMarginPx) {
         LinearLayout.LayoutParams lp = new LinearLayout.LayoutParams(
                 ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT);
-        lp.bottomMargin = dp(6);
+        lp.bottomMargin = bottomMarginPx;
         return lp;
     }
 
-    private TextView createPillButton(String text, View.OnClickListener listener) {
-        TextView btn = new TextView(this);
-        btn.setText(text);
-        btn.setTextColor(Color.parseColor("#CBD5E1"));
-        btn.setTextSize(TypedValue.COMPLEX_UNIT_SP, 13);
-        btn.setTypeface(Typeface.create("sans-serif-medium", Typeface.BOLD));
-        btn.setBackgroundResource(R.drawable.pill_bg);
-        btn.setPadding(dp(16), dp(8), dp(16), dp(8));
-        btn.setFocusable(true);
-        btn.setClickable(true);
-        attachFocusScale(btn);
-        btn.setOnClickListener(listener);
-        return btn;
-    }
-
-    private LinearLayout.LayoutParams pillLp(int rightMarginPx) {
-        LinearLayout.LayoutParams lp = new LinearLayout.LayoutParams(
-                ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT);
-        lp.rightMargin = rightMarginPx;
-        return lp;
-    }
-
-    private void attachFocusScale(final View v) {
-        v.setOnFocusChangeListener(new View.OnFocusChangeListener() {
+    private void applyRoundedOutline(View view, final float radiusPx, boolean clip) {
+        view.setOutlineProvider(new ViewOutlineProvider() {
             @Override
-            public void onFocusChange(final View view, boolean hasFocus) {
-                float scale = hasFocus ? 1.045f : 1.0f;
-                view.animate()
+            public void getOutline(View v, Outline outline) {
+                outline.setRoundRect(0, 0, v.getWidth(), v.getHeight(), radiusPx);
+            }
+        });
+        view.setClipToOutline(clip);
+    }
+
+    private void attachChipFocusEffect(final View chip, final int accentColor) {
+        chip.setOnFocusChangeListener(new View.OnFocusChangeListener() {
+            @Override
+            public void onFocusChange(View v, boolean hasFocus) {
+                float scale = hasFocus ? 1.05f : 1.0f;
+                v.animate()
                         .scaleX(scale)
                         .scaleY(scale)
-                        .setDuration(100)
+                        .setDuration(FOCUS_ANIM_MS)
+                        .setInterpolator(FOCUS_EASE)
                         .start();
-                view.setElevation(hasFocus ? dp(8) : 0f);
+                v.setElevation(hasFocus ? dp(10) : 0f);
+                v.setTranslationZ(hasFocus ? dp(4) : 0f);
                 if (hasFocus) {
-                    view.post(new Runnable() {
-                        @Override
-                        public void run() {
-                            android.graphics.Rect rect = new android.graphics.Rect(
-                                    -dp(12), -dp(16), view.getWidth() + dp(12), view.getHeight() + dp(20));
-                            view.requestRectangleOnScreen(rect, false);
-                        }
-                    });
+                    v.setOutlineSpotShadowColor(accentColor);
+                    v.setOutlineAmbientShadowColor(accentColor);
+                    updateAmbientForView(v, accentColor);
                 }
+            }
+        });
+    }
+
+    private void attachSourceFocusEffect(final View card, final int accentColor) {
+        card.setOnFocusChangeListener(new View.OnFocusChangeListener() {
+            @Override
+            public void onFocusChange(final View v, boolean hasFocus) {
+                float scale = hasFocus ? 1.038f : 1.0f;
+                v.animate()
+                        .scaleX(scale)
+                        .scaleY(scale)
+                        .setDuration(FOCUS_ANIM_MS)
+                        .setInterpolator(FOCUS_EASE)
+                        .start();
+                v.setElevation(hasFocus ? dp(16) : 0f);
+                v.setTranslationZ(hasFocus ? dp(6) : 0f);
+                if (hasFocus) {
+                    v.setOutlineSpotShadowColor(accentColor);
+                    v.setOutlineAmbientShadowColor(accentColor);
+                    updateAmbientForView(v, accentColor);
+                    ensureVisibleOnScreen(v);
+                }
+            }
+        });
+    }
+
+    private void attachAppFocusEffect(
+            final View container,
+            final View tileBox,
+            final TextView label,
+            final View parentRow,
+            final int accentColor
+    ) {
+        container.setOnFocusChangeListener(new View.OnFocusChangeListener() {
+            @Override
+            public void onFocusChange(final View v, boolean hasFocus) {
+                float scale = hasFocus ? 1.075f : 1.0f;
+                tileBox.animate()
+                        .scaleX(scale)
+                        .scaleY(scale)
+                        .setDuration(FOCUS_ANIM_MS)
+                        .setInterpolator(FOCUS_EASE)
+                        .start();
+                tileBox.setElevation(hasFocus ? dp(18) : 0f);
+                container.setTranslationZ(hasFocus ? dp(8) : 0f);
+                if (parentRow != null) {
+                    parentRow.setTranslationZ(hasFocus ? dp(6) : 0f);
+                }
+
+                label.animate()
+                        .alpha(hasFocus ? 1.0f : 0.54f)
+                        .translationY(hasFocus ? dp(3) : 0f)
+                        .setDuration(FOCUS_ANIM_MS)
+                        .setInterpolator(FOCUS_EASE)
+                        .start();
+
+                if (hasFocus) {
+                    tileBox.setOutlineSpotShadowColor(accentColor);
+                    tileBox.setOutlineAmbientShadowColor(accentColor);
+                    updateAmbientForView(tileBox, accentColor);
+                    ensureVisibleOnScreen(v);
+                }
+            }
+        });
+    }
+
+    private void updateAmbientForView(final View v, final int accentColor) {
+        if (ambientBackdrop == null || rootFrame == null) return;
+        v.post(new Runnable() {
+            @Override
+            public void run() {
+                int rw = rootFrame.getWidth();
+                int rh = rootFrame.getHeight();
+                if (rw <= 0 || rh <= 0) {
+                    ambientBackdrop.transitionTo(accentColor, 0.50f, 0.30f);
+                    return;
+                }
+                v.getLocationInWindow(locBuf);
+                float cx = (locBuf[0] + v.getWidth() * 0.5f) / (float) rw;
+                float cy = (locBuf[1] + v.getHeight() * 0.5f) / (float) rh;
+                ambientBackdrop.transitionTo(accentColor, cx, cy);
+            }
+        });
+    }
+
+    private void ensureVisibleOnScreen(final View v) {
+        v.post(new Runnable() {
+            @Override
+            public void run() {
+                Rect rect = new Rect(-dp(16), -dp(24), v.getWidth() + dp(16), v.getHeight() + dp(28));
+                v.requestRectangleOnScreen(rect, false);
             }
         });
     }

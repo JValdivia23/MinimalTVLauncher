@@ -1,28 +1,28 @@
 <?xml version="1.0" encoding="utf-8"?>
 <vector xmlns:android="http://schemas.android.com/apk/res/android"
-    android:width="48dp"
-    android:height="48dp"
+    android:width="32dp"
+    android:height="32dp"
     android:viewportWidth="24"
     android:viewportHeight="24">
     <!-- Monitor / input switcher outline -->
     <path
         android:fillColor="#00000000"
-        android:strokeColor="#CBD5E1"
+        android:strokeColor="#D8DEE9"
         android:strokeWidth="1.7"
         android:strokeLineJoin="round"
         android:pathData="M3,5 L21,5 L21,16 L3,16 Z" />
     <!-- Stand -->
     <path
         android:fillColor="#00000000"
-        android:strokeColor="#CBD5E1"
+        android:strokeColor="#D8DEE9"
         android:strokeWidth="1.7"
         android:strokeLineCap="round"
         android:pathData="M9,19.5 L15,19.5 M12,16 L12,19.5" />
     <!-- Input arrow -->
     <path
         android:fillColor="#00000000"
-        android:strokeColor="#7AA2F7"
-        android:strokeWidth="1.8"
+        android:strokeColor="#94A3B8"
+        android:strokeWidth="1.75"
         android:strokeLineCap="round"
         android:strokeLineJoin="round"
         android:pathData="M7,10.5 L15,10.5 M12.2,8 L15,10.5 L12.2,13" />

@@ -100,6 +100,7 @@ public class MainActivity extends Activity {
 
     private View firstInputCard;
     private final int[] locBuf = new int[2];
+    private final int[] rootLocBuf = new int[2];
 
     private final Handler clockHandler = new Handler(Looper.getMainLooper());
     private final SimpleDateFormat timeFormat = new SimpleDateFormat("h:mm a", Locale.US);
@@ -235,7 +236,7 @@ public class MainActivity extends Activity {
     private void buildUi() {
         rootFrame = new FrameLayout(this);
         ambientBackdrop = new AmbientBackdropDrawable();
-        ambientBackdrop.setImmediate(ACCENT_DP, 0.20f, 0.28f);
+        ambientBackdrop.setImmediate(ACCENT_DP, 0.16f, 0.30f, 0.21f, 0.14f);
         rootFrame.setBackground(ambientBackdrop);
         rootFrame.setClipChildren(false);
         rootFrame.setClipToPadding(false);
@@ -692,7 +693,9 @@ public class MainActivity extends Activity {
         card.setFocusable(true);
         card.setFocusableInTouchMode(false);
         card.setClickable(true);
-        applyRoundedOutline(card, dp(16), true);
+        float cardRadiusPx = dpF(16f);
+        applyRoundedOutline(card, cardRadiusPx, true);
+        card.setForeground(new BevelRimDrawable(cardRadiusPx, dpF(1.1f), dpF(1.9f), accent));
 
         // Subtle internal port-accent wash bleeding gently rightward from the connector well
         final View portWash = new View(this);
@@ -813,7 +816,9 @@ public class MainActivity extends Activity {
         card.setPadding(dp(13), dp(10), dp(13), dp(10));
         card.setFocusable(true);
         card.setClickable(true);
-        applyRoundedOutline(card, dp(16), false);
+        float cardRadiusPx = dpF(16f);
+        applyRoundedOutline(card, cardRadiusPx, true);
+        card.setForeground(new BevelRimDrawable(cardRadiusPx, dpF(1.0f), dpF(1.8f), ACCENT_OSD));
 
         FrameLayout iconWell = new FrameLayout(this);
         iconWell.setDuplicateParentStateEnabled(true);
@@ -1000,8 +1005,9 @@ public class MainActivity extends Activity {
         final AspectRatioFrameLayout tileBox = new AspectRatioFrameLayout(this);
         tileBox.setDuplicateParentStateEnabled(true);
         tileBox.setBackgroundColor(0xFF0E1118);
-        applyRoundedOutline(tileBox, dp(13), true);
-        tileBox.setForeground(getDrawable(R.drawable.app_focus_ring));
+        float tileRadiusPx = dpF(13f);
+        applyRoundedOutline(tileBox, tileRadiusPx, true);
+        tileBox.setForeground(new BevelRimDrawable(tileRadiusPx, dpF(1.25f), dpF(1.95f), app.accentColor));
 
         ImageView dimmableArt = null;
         View dimmableLockup = null;
@@ -1160,7 +1166,7 @@ public class MainActivity extends Activity {
                 if (hasFocus) {
                     v.setOutlineSpotShadowColor(accentColor);
                     v.setOutlineAmbientShadowColor(accentColor);
-                    updateAmbientForView(v, accentColor);
+                    updateAmbientForView(v, 1.038f, accentColor);
                     scrollHomeToTop();
                 }
             }
@@ -1194,7 +1200,7 @@ public class MainActivity extends Activity {
                 if (hasFocus) {
                     v.setOutlineSpotShadowColor(accentColor);
                     v.setOutlineAmbientShadowColor(accentColor);
-                    updateAmbientForView(v, accentColor);
+                    updateAmbientForView(v, 1.038f, accentColor);
                     scrollHomeToTop();
                 }
             }
@@ -1248,7 +1254,7 @@ public class MainActivity extends Activity {
                 if (hasFocus) {
                     tileBox.setOutlineSpotShadowColor(accentColor);
                     tileBox.setOutlineAmbientShadowColor(accentColor);
-                    updateAmbientForView(tileBox, accentColor);
+                    updateAmbientForView(tileBox, 1.072f, accentColor);
                     if (rowIndex <= 1) {
                         scrollHomeToTop();
                     } else {
@@ -1265,7 +1271,7 @@ public class MainActivity extends Activity {
         }
     }
 
-    private void updateAmbientForView(final View v, final int accentColor) {
+    private void updateAmbientForView(final View v, final float targetScale, final int accentColor) {
         if (ambientBackdrop == null || rootFrame == null) return;
         v.post(new Runnable() {
             @Override
@@ -1273,13 +1279,19 @@ public class MainActivity extends Activity {
                 int rw = rootFrame.getWidth();
                 int rh = rootFrame.getHeight();
                 if (rw <= 0 || rh <= 0) {
-                    ambientBackdrop.transitionTo(accentColor, 0.50f, 0.30f);
+                    ambientBackdrop.transitionTo(accentColor, 0.50f, 0.30f, 0.20f, 0.14f);
                     return;
                 }
+                rootFrame.getLocationInWindow(rootLocBuf);
                 v.getLocationInWindow(locBuf);
-                float cx = (locBuf[0] + v.getWidth() * 0.5f) / (float) rw;
-                float cy = (locBuf[1] + v.getHeight() * 0.5f) / (float) rh;
-                ambientBackdrop.transitionTo(accentColor, cx, cy);
+                // Reconstruct layout center independent of current scale animation frame
+                float curScaleX = Math.max(0.5f, v.getScaleX());
+                float curScaleY = Math.max(0.5f, v.getScaleY());
+                float cx = ((locBuf[0] - rootLocBuf[0]) + (v.getWidth() * curScaleX) * 0.5f) / (float) rw;
+                float cy = ((locBuf[1] - rootLocBuf[1]) + (v.getHeight() * curScaleY) * 0.5f) / (float) rh;
+                float nw = (v.getWidth() * targetScale) / (float) rw;
+                float nh = (v.getHeight() * targetScale) / (float) rh;
+                ambientBackdrop.transitionTo(accentColor, cx, cy, nw, nh);
             }
         });
     }
@@ -1297,5 +1309,10 @@ public class MainActivity extends Activity {
     private int dp(int value) {
         return Math.round(TypedValue.applyDimension(
                 TypedValue.COMPLEX_UNIT_DIP, value, getResources().getDisplayMetrics()));
+    }
+
+    private float dpF(float value) {
+        return TypedValue.applyDimension(
+                TypedValue.COMPLEX_UNIT_DIP, value, getResources().getDisplayMetrics());
     }
 }

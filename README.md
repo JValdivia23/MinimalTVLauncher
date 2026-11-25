@@ -1,6 +1,6 @@
 # MinimalTVLauncher
 
-An ultra-lightweight (~59 KB APK), zero-dependency, ad-free open-source Android TV launcher built for Smart Monitors (tested on the **KTC A32Q8** / Realtek `RTD2851F`).
+An ultra-lightweight (~58 KB APK), zero-dependency, ad-free open-source Android TV launcher built for Smart Monitors (tested on the **KTC A32Q8** / Realtek `RTD2851F`).
 
 Designed to replace sluggish, ad-heavy Google TV launchers on low-RAM (2 GB) smart monitors with an **Obsidian Spatial** aesthetic, native hardware input switching (**DisplayPort**, **USB-C**, **HDMI**), and **auto-boot directly into your PC input**.
 
@@ -8,8 +8,8 @@ Designed to replace sluggish, ad-heavy Google TV launchers on low-RAM (2 GB) sma
 ![MinimalTVLauncher Home Menu](docs/screenshot.png)
 
 <p align="center">
-  <img src="docs/focus_disney.png" width="49%" alt="Dynamic Cyan Ambient Backlight (Disney+)" />
-  <img src="docs/focus_netflix.png" width="49%" alt="Dynamic Crimson Ambient Backlight (Netflix)" />
+  <img src="docs/focus_dp.png" width="49%" alt="Hardware Input Focus — Ice-Blue Backlight (DisplayPort)" />
+  <img src="docs/focus_netflix.png" width="49%" alt="Cinema App Focus — Crimson Backlight (Netflix)" />
 </p>
 
 ### Built-in MRMS Weather Radar Screensaver
@@ -18,11 +18,11 @@ Designed to replace sluggish, ad-heavy Google TV launchers on low-RAM (2 GB) sma
 ## Features
 
 - **Obsidian Spatial Aesthetic (Zero Blur Overhead)**:
-  - **Dual-Tone Ambient Backlight + Anti-Banding Grain**: Deep OLED-grade obsidian backdrop with a zero-blur dual-tone GPU radial glow that shifts smoothly to match the focused tile's brand accent, paired with a cached `64×64` procedural micro-noise dither to eliminate 8-bit panel Mach banding.
-  - **Cinema 16:9 App Gallery**: Exact `16:9` full-bleed artwork with rest-state cinema dimming (`0.82×` → `1.0×` focus bloom), tvOS-style focus-reveal floating titles, `1.5dp` directional specular focus rings, and native API 28+ colored GPU shadows (`setOutlineSpotShadowColor`).
-  - **Automatic Obsidian Banner Remapping & Bespoke System Lockups**: Automatically converts blinding white-slab Leanback banners (e.g., *Netflix*, *Play Store*, *YouTube*) into cohesive dark obsidian cards while preserving brand colors and enclosed cutouts, alongside custom dark-glass vector lockups for stock utilities (*Media Player*, *Miracast*).
+  - **Physically Coherent Ambient & Backlit Optics**: Unified `12-o'clock` overhead room lighting across all resting cards and tiles (top catchlight, neutral grazing sides, grounded underside shadow), paired with an aspect-matched radial backlight aura, continuous `accentColor`-infused backlit glass rim on the focused element, and a cached `64×64` procedural micro-noise dither to eliminate 8-bit panel Mach banding.
+  - **Cinema 16:9 App Gallery**: Exact `16:9` full-bleed artwork with flush zero-offset 3D bevel rims, rest-state cinema dimming (`0.82×` → `1.0×` focus bloom), tvOS-style focus-reveal floating titles, and native API 28+ colored GPU shadows (`setOutlineSpotShadowColor`).
+  - **Automatic Obsidian Banner Remapping & Bespoke System Lockups**: Automatically converts blinding white-slab Leanback banners (e.g., *Netflix*, *Play Store*, *YouTube*) into cohesive dark obsidian cards via linear-light unmixing while preserving brand colors and enclosed cutouts, alongside custom dark-glass vector lockups for stock utilities (*Media Player*, *Miracast*).
   - **Frosted Glass Control Capsule**: Quiet 3-chip top-lit glass bar (`Radar`, `Zzz`, `Boot · DP`) paired with a standalone circular glass `Settings` button and a tabular-numeral live clock.
-- **Native Smart Monitor Sources**: Dynamically discovers hardware passthrough inputs via Android's `TvInputManager` (**DisplayPort**, **USB-C**, **HDMI 1**) with directional specular rims, subtle port-accent inner washes, active-signal emerald LEDs, a recessed `BOOT` micro-tag, and a ghost-glass `All Inputs` OSD tile.
+- **Native Smart Monitor Sources**: Dynamically discovers hardware passthrough inputs via Android's `TvInputManager` (**DisplayPort**, **USB-C**, **HDMI 1**) with unified `12-o'clock` & backlit bevel rims, subtle port-accent inner washes, active-signal emerald LEDs, a recessed `BOOT` micro-tag, and a ghost-glass `All Inputs` OSD tile.
 - **Live MRMS Weather Radar Screensaver & On-Demand Viewer (`Radar`)**:
   - Registers a native Android TV `DreamService` (`RadarDreamService`) displaying your live [MRMS Weather Radar](https://jvaldivia23.github.io/personal_webpage/radar/) in a hardware-accelerated WebView with auto-looping scans.
   - **PC / DisplayPort Safe**: Realtek's hardware passthrough wake lock + an explicit passthrough guard ensure the Android screensaver **never** interrupts active DisplayPort / USB-C / HDMI workstation use.
@@ -35,7 +35,7 @@ Designed to replace sluggish, ad-heavy Google TV launchers on low-RAM (2 GB) sma
   - Click the top-bar **`Boot · ...`** chip to cycle through `DP` → `USB-C` → `HDMI 1` → `Off`.
   - Or **long-press** any source tile to set it as the default boot input immediately.
   - Uses both `BOOT_COMPLETED` (`BootReceiver`) and cold-boot uptime fallback so your monitor jumps straight to your workstation on power-on.
-- **Ultra-Low Footprint**: ~59 KB compiled APK, ~0.8 MB Java heap (~47 MB total PSS), zero Gradle bloat, zero ads, zero telemetry/Firebase.
+- **Ultra-Low Footprint**: ~58 KB compiled APK, ~0.8 MB Java heap (~47 MB total PSS), zero Gradle bloat, zero ads, zero telemetry/Firebase.
 
 ## Requirements
 

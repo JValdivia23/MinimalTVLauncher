@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<!-- Borderless at rest inside the glass capsule; machined specular pill on focus -->
+<!-- Symmetric 12-o'clock top-lit pill inside the frosted utility capsule -->
 <selector xmlns:android="http://schemas.android.com/apk/res/android">
     <item android:state_focused="true">
         <layer-list>
@@ -7,10 +7,10 @@
                 <shape android:shape="rectangle">
                     <gradient
                         android:type="linear"
-                        android:angle="315"
-                        android:startColor="#FAFFFFFF"
-                        android:centerColor="#98FFFFFF"
-                        android:endColor="#3CFFFFFF" />
+                        android:angle="270"
+                        android:startColor="#EBFFFFFF"
+                        android:centerColor="#88CBD5E1"
+                        android:endColor="#5594A3B8" />
                     <corners android:radius="18dp" />
                 </shape>
             </item>

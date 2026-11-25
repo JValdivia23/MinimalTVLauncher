@@ -1,70 +1,40 @@
 <?xml version="1.0" encoding="utf-8"?>
-<!-- Machined 1.5dp directional specular obsidian glass tile for primary hardware sources -->
+<!-- Smoked obsidian glass body for primary hardware sources (3D rim drawn by BevelRimDrawable) -->
 <selector xmlns:android="http://schemas.android.com/apk/res/android">
     <item android:state_focused="true">
         <layer-list>
-            <!-- Directional top-left lit machined glass rim (1.5dp) -->
             <item>
-                <shape android:shape="rectangle">
-                    <gradient
-                        android:type="linear"
-                        android:angle="315"
-                        android:startColor="#FAFFFFFF"
-                        android:centerColor="#8CFFFFFF"
-                        android:endColor="#32FFFFFF" />
-                    <corners android:radius="16dp" />
-                </shape>
-            </item>
-            <!-- Elevated smoked obsidian body -->
-            <item android:left="1.5dp" android:top="1.5dp" android:right="1.5dp" android:bottom="1.5dp">
                 <shape android:shape="rectangle">
                     <gradient
                         android:type="linear"
                         android:angle="270"
                         android:startColor="#F0202634"
                         android:endColor="#F012151E" />
-                    <corners android:radius="14.5dp" />
+                    <corners android:radius="16dp" />
                 </shape>
             </item>
-            <!-- Soft overhead diagonal glass reflection -->
-            <item android:left="1.5dp" android:top="1.5dp" android:right="1.5dp" android:bottom="1.5dp">
-                <shape android:shape="rectangle">
-                    <gradient
-                        android:type="linear"
-                        android:angle="315"
-                        android:startColor="#20FFFFFF"
-                        android:centerColor="#04FFFFFF"
-                        android:endColor="#00FFFFFF" />
-                    <corners android:radius="14.5dp" />
-                </shape>
-            </item>
-        </layer-list>
-    </item>
-    <item>
-        <layer-list>
-            <!-- Whisper-quiet top-lit hairline glass edge -->
+            <!-- Symmetric 12-o'clock overhead glass sheen -->
             <item>
                 <shape android:shape="rectangle">
                     <gradient
                         android:type="linear"
                         android:angle="270"
-                        android:startColor="#28FFFFFF"
-                        android:centerColor="#0EFFFFFF"
-                        android:endColor="#06FFFFFF" />
+                        android:startColor="#16FFFFFF"
+                        android:centerColor="#03FFFFFF"
+                        android:endColor="#00FFFFFF" />
                     <corners android:radius="16dp" />
                 </shape>
             </item>
-            <!-- Translucent obsidian body allowing ambient backlight bleed -->
-            <item android:left="1dp" android:top="1dp" android:right="1dp" android:bottom="1dp">
-                <shape android:shape="rectangle">
-                    <gradient
-                        android:type="linear"
-                        android:angle="270"
-                        android:startColor="#D0141822"
-                        android:endColor="#D00C0F16" />
-                    <corners android:radius="15dp" />
-                </shape>
-            </item>
         </layer-list>
+    </item>
+    <item>
+        <shape android:shape="rectangle">
+            <gradient
+                android:type="linear"
+                android:angle="270"
+                android:startColor="#D4141822"
+                android:endColor="#D40C0F16" />
+            <corners android:radius="16dp" />
+        </shape>
     </item>
 </selector>

@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<!-- Standalone circular frosted obsidian glass button (Settings) -->
+<!-- Standalone circular frosted obsidian glass button (12-o'clock overhead lit) -->
 <selector xmlns:android="http://schemas.android.com/apk/res/android">
     <item android:state_focused="true">
         <layer-list>
@@ -7,10 +7,10 @@
                 <shape android:shape="oval">
                     <gradient
                         android:type="linear"
-                        android:angle="315"
-                        android:startColor="#FAFFFFFF"
-                        android:centerColor="#90FFFFFF"
-                        android:endColor="#38FFFFFF" />
+                        android:angle="270"
+                        android:startColor="#EBFFFFFF"
+                        android:centerColor="#88CBD5E1"
+                        android:endColor="#5594A3B8" />
                 </shape>
             </item>
             <item android:left="1.5dp" android:top="1.5dp" android:right="1.5dp" android:bottom="1.5dp">
@@ -32,7 +32,7 @@
                         android:type="linear"
                         android:angle="270"
                         android:startColor="#34FFFFFF"
-                        android:centerColor="#14FFFFFF"
+                        android:centerColor="#12FFFFFF"
                         android:endColor="#08FFFFFF" />
                 </shape>
             </item>

@@ -8,6 +8,7 @@ import android.graphics.Canvas;
 import android.graphics.Color;
 import android.graphics.ColorFilter;
 import android.graphics.LinearGradient;
+import android.graphics.Matrix;
 import android.graphics.Paint;
 import android.graphics.PixelFormat;
 import android.graphics.RadialGradient;
@@ -55,11 +56,15 @@ public final class AmbientBackdropDrawable extends Drawable {
     private final Paint basePaint = new Paint(Paint.DITHER_FLAG);
     private final Paint topWashPaint = new Paint(Paint.DITHER_FLAG);
     private final Paint spotWashPaint = new Paint(Paint.DITHER_FLAG);
+    private final Paint auraPaint = new Paint(Paint.DITHER_FLAG);
+    private final Matrix auraMatrix = new Matrix();
     private final float[] hsvBuf = new float[3];
 
     private int currentColor = DEFAULT_ACCENT;
     private float focusNormX = 0.20f;
     private float focusNormY = 0.30f;
+    private float focusNormW = 0.20f;
+    private float focusNormH = 0.14f;
 
     private boolean baseDirty = true;
     private boolean washDirty = true;
@@ -103,11 +108,20 @@ public final class AmbientBackdropDrawable extends Drawable {
     }
 
     /**
-     * Smoothly transitions the ambient backlight color and subtle spotlight position.
+     * Smoothly transitions the ambient backlight color and aspect-matched backlit aura to hug
+     * the focused element's exact screen bounds.
      */
-    public void transitionTo(int targetColor, float targetNormX, float targetNormY) {
-        final float clampedX = Math.max(0.08f, Math.min(0.92f, targetNormX));
-        final float clampedY = Math.max(0.05f, Math.min(0.90f, targetNormY));
+    public void transitionTo(
+            int targetColor,
+            float targetNormX,
+            float targetNormY,
+            float targetNormW,
+            float targetNormH
+    ) {
+        final float clampedX = Math.max(0.05f, Math.min(0.95f, targetNormX));
+        final float clampedY = Math.max(0.05f, Math.min(0.92f, targetNormY));
+        final float clampedW = Math.max(0.04f, Math.min(0.50f, targetNormW));
+        final float clampedH = Math.max(0.05f, Math.min(0.45f, targetNormH));
 
         if (animator != null && animator.isRunning()) {
             animator.cancel();
@@ -116,10 +130,14 @@ public final class AmbientBackdropDrawable extends Drawable {
         final int startColor = currentColor;
         final float startX = focusNormX;
         final float startY = focusNormY;
+        final float startW = focusNormW;
+        final float startH = focusNormH;
 
         if (startColor == targetColor
-                && Math.abs(startX - clampedX) < 0.01f
-                && Math.abs(startY - clampedY) < 0.01f) {
+                && Math.abs(startX - clampedX) < 0.005f
+                && Math.abs(startY - clampedY) < 0.005f
+                && Math.abs(startW - clampedW) < 0.005f
+                && Math.abs(startH - clampedH) < 0.005f) {
             return;
         }
 
@@ -131,7 +149,7 @@ public final class AmbientBackdropDrawable extends Drawable {
         final int tb = Color.blue(targetColor);
 
         animator = ValueAnimator.ofFloat(0f, 1f);
-        animator.setDuration(380L);
+        animator.setDuration(300L);
         animator.setInterpolator(EASE_OUT);
         animator.addUpdateListener(new ValueAnimator.AnimatorUpdateListener() {
             @Override
@@ -143,6 +161,8 @@ public final class AmbientBackdropDrawable extends Drawable {
                 currentColor = Color.rgb(r, g, b);
                 focusNormX = startX + (clampedX - startX) * f;
                 focusNormY = startY + (clampedY - startY) * f;
+                focusNormW = startW + (clampedW - startW) * f;
+                focusNormH = startH + (clampedH - startH) * f;
                 washDirty = true;
                 invalidateSelf();
             }
@@ -150,13 +170,15 @@ public final class AmbientBackdropDrawable extends Drawable {
         animator.start();
     }
 
-    public void setImmediate(int color, float normX, float normY) {
+    public void setImmediate(int color, float normX, float normY, float normW, float normH) {
         if (animator != null && animator.isRunning()) {
             animator.cancel();
         }
         currentColor = color;
-        focusNormX = Math.max(0.08f, Math.min(0.92f, normX));
-        focusNormY = Math.max(0.05f, Math.min(0.90f, normY));
+        focusNormX = Math.max(0.05f, Math.min(0.95f, normX));
+        focusNormY = Math.max(0.05f, Math.min(0.92f, normY));
+        focusNormW = Math.max(0.04f, Math.min(0.50f, normW));
+        focusNormH = Math.max(0.05f, Math.min(0.45f, normH));
         washDirty = true;
         invalidateSelf();
     }
@@ -195,36 +217,63 @@ public final class AmbientBackdropDrawable extends Drawable {
             int tg = Color.green(topAccent);
             int tb = Color.blue(topAccent);
 
-            float topRadius = Math.max(w, h) * 0.82f;
+            float topRadius = Math.max(w, h) * 0.80f;
             topWashPaint.setShader(new RadialGradient(
                     w * 0.50f, -h * 0.14f, topRadius,
                     new int[] {
-                            Color.argb(0x30, tr, tg, tb),
-                            Color.argb(0x12, tr, tg, tb),
+                            Color.argb(0x28, tr, tg, tb),
+                            Color.argb(0x0E, tr, tg, tb),
                             Color.argb(0x00, tr, tg, tb)
                     },
                     new float[] { 0f, 0.50f, 1f },
                     Shader.TileMode.CLAMP
             ));
 
-            // Focused element spatial spotlight
-            float spotRadius = w * 0.45f;
+            float cx = w * focusNormX;
+            float cy = h * focusNormY;
+
+            // Broad soft room reflection around focused region
+            float spotRadius = w * 0.42f;
             spotWashPaint.setShader(new RadialGradient(
-                    w * focusNormX, h * focusNormY, spotRadius,
+                    cx, cy, spotRadius,
                     new int[] {
-                            Color.argb(0x26, r, g, bl),
-                            Color.argb(0x0B, r, g, bl),
+                            Color.argb(0x1E, r, g, bl),
+                            Color.argb(0x09, r, g, bl),
                             Color.argb(0x00, r, g, bl)
                     },
-                    new float[] { 0f, 0.50f, 1f },
+                    new float[] { 0f, 0.52f, 1f },
                     Shader.TileMode.CLAMP
             ));
+
+            // Tight aspect-matched backlight aura hugging all 4 edges of the focused card/tile
+            // so background glow and backlit bevel rim brightness share one physical light source
+            float rx = Math.max(w * 0.045f, w * focusNormW * 0.86f);
+            float ry = Math.max(h * 0.065f, h * focusNormH * 1.06f);
+            RadialGradient unitAura = new RadialGradient(
+                    0f, 0f, 1f,
+                    new int[] {
+                            Color.argb(0x5E, r, g, bl),
+                            Color.argb(0x46, r, g, bl),
+                            Color.argb(0x1C, r, g, bl),
+                            Color.argb(0x06, r, g, bl),
+                            Color.argb(0x00, r, g, bl)
+                    },
+                    new float[] { 0f, 0.54f, 0.74f, 0.89f, 1f },
+                    Shader.TileMode.CLAMP
+            );
+            auraMatrix.reset();
+            auraMatrix.setScale(rx, ry);
+            auraMatrix.postTranslate(cx, cy);
+            unitAura.setLocalMatrix(auraMatrix);
+            auraPaint.setShader(unitAura);
+
             washDirty = false;
         }
 
         canvas.drawRect(b, basePaint);
         canvas.drawRect(b, topWashPaint);
         canvas.drawRect(b, spotWashPaint);
+        canvas.drawRect(b, auraPaint);
         canvas.drawRect(b, getNoisePaint());
     }
 

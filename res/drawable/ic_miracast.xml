@@ -1,0 +1,25 @@
+<?xml version="1.0" encoding="utf-8"?>
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="32dp"
+    android:height="32dp"
+    android:viewportWidth="24"
+    android:viewportHeight="24">
+    <!-- Wireless display frame -->
+    <path
+        android:fillColor="#00000000"
+        android:strokeColor="#CBD5E1"
+        android:strokeWidth="1.65"
+        android:strokeLineCap="round"
+        android:strokeLineJoin="round"
+        android:pathData="M2.5,8.2 L2.5,6.5 A1.8,1.8 0 0,1 4.3,4.7 L19.7,4.7 A1.8,1.8 0 0,1 21.5,6.5 L21.5,17.5 A1.8,1.8 0 0,1 19.7,19.3 L13.5,19.3" />
+    <!-- Radiating cast arcs -->
+    <path
+        android:fillColor="#00000000"
+        android:strokeColor="#818CF8"
+        android:strokeWidth="1.75"
+        android:strokeLineCap="round"
+        android:pathData="M2.5,15.8 A3.5,3.5 0 0,1 6.0,19.3 M2.5,12.2 A7.1,7.1 0 0,1 9.6,19.3" />
+    <path
+        android:fillColor="#A5B4FC"
+        android:pathData="M2.5,18.1 A1.2,1.2 0 1,0 2.5,20.5 A1.2,1.2 0 1,0 2.5,18.1 Z" />
+</vector>

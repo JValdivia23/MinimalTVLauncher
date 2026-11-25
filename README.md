@@ -1,11 +1,16 @@
 # MinimalTVLauncher
 
-An ultra-lightweight (~50 KB APK), zero-dependency, ad-free open-source Android TV launcher built for Smart Monitors (tested on the **KTC A32Q8** / Realtek `RTD2851F`).
+An ultra-lightweight (~59 KB APK), zero-dependency, ad-free open-source Android TV launcher built for Smart Monitors (tested on the **KTC A32Q8** / Realtek `RTD2851F`).
 
 Designed to replace sluggish, ad-heavy Google TV launchers on low-RAM (2 GB) smart monitors with an **Obsidian Spatial** aesthetic, native hardware input switching (**DisplayPort**, **USB-C**, **HDMI**), and **auto-boot directly into your PC input**.
 
 ### Home Menu
 ![MinimalTVLauncher Home Menu](docs/screenshot.png)
+
+<p align="center">
+  <img src="docs/focus_disney.png" width="49%" alt="Dynamic Cyan Ambient Backlight (Disney+)" />
+  <img src="docs/focus_netflix.png" width="49%" alt="Dynamic Crimson Ambient Backlight (Netflix)" />
+</p>
 
 ### Built-in MRMS Weather Radar Screensaver
 ![MRMS Weather Radar Screensaver](docs/radar.png)
@@ -13,23 +18,24 @@ Designed to replace sluggish, ad-heavy Google TV launchers on low-RAM (2 GB) sma
 ## Features
 
 - **Obsidian Spatial Aesthetic (Zero Blur Overhead)**:
-  - **Dynamic Ambient Backlight**: Deep OLED-grade obsidian backdrop with a zero-blur GPU radial glow that cross-fades smoothly to match the focused app or input's dominant color.
-  - **Full-Bleed 16:9 App Tiles**: Edge-to-edge rounded artwork with crisp luminous white specular focus rings, native API 28+ colored hardware shadows (`setOutlineSpotShadowColor`), and floating titles.
-  - **Unified Frosted Glass Control Capsule**: Compact top-lit glass bar housing `Radar`, `Zzz`, `Boot · DP`, and `Settings` alongside a tabular-numeral live clock.
-- **Native Smart Monitor Sources**: Dynamically discovers hardware passthrough inputs via Android's `TvInputManager` (**DisplayPort**, **USB-C**, **HDMI 1**) inside a sleek specular glass dock with glowing emerald active-signal LEDs and a `BOOT` micro-badge.
+  - **Dual-Tone Ambient Backlight + Anti-Banding Grain**: Deep OLED-grade obsidian backdrop with a zero-blur dual-tone GPU radial glow that shifts smoothly to match the focused tile's brand accent, paired with a cached `64×64` procedural micro-noise dither to eliminate 8-bit panel Mach banding.
+  - **Cinema 16:9 App Gallery**: Exact `16:9` full-bleed artwork with rest-state cinema dimming (`0.82×` → `1.0×` focus bloom), tvOS-style focus-reveal floating titles, `1.5dp` directional specular focus rings, and native API 28+ colored GPU shadows (`setOutlineSpotShadowColor`).
+  - **Automatic Obsidian Banner Remapping & Bespoke System Lockups**: Automatically converts blinding white-slab Leanback banners (e.g., *Netflix*, *Play Store*, *YouTube*) into cohesive dark obsidian cards while preserving brand colors and enclosed cutouts, alongside custom dark-glass vector lockups for stock utilities (*Media Player*, *Miracast*).
+  - **Frosted Glass Control Capsule**: Quiet 3-chip top-lit glass bar (`Radar`, `Zzz`, `Boot · DP`) paired with a standalone circular glass `Settings` button and a tabular-numeral live clock.
+- **Native Smart Monitor Sources**: Dynamically discovers hardware passthrough inputs via Android's `TvInputManager` (**DisplayPort**, **USB-C**, **HDMI 1**) with directional specular rims, subtle port-accent inner washes, active-signal emerald LEDs, a recessed `BOOT` micro-tag, and a ghost-glass `All Inputs` OSD tile.
 - **Live MRMS Weather Radar Screensaver & On-Demand Viewer (`Radar`)**:
   - Registers a native Android TV `DreamService` (`RadarDreamService`) displaying your live [MRMS Weather Radar](https://jvaldivia23.github.io/personal_webpage/radar/) in a hardware-accelerated WebView with auto-looping scans.
   - **PC / DisplayPort Safe**: Realtek's hardware passthrough wake lock + an explicit passthrough guard ensure the Android screensaver **never** interrupts active DisplayPort / USB-C / HDMI workstation use.
-  - **Zero RAM Leak**: Runs in an isolated `:radar` process that terminates immediately on exit/wake, returning 100% of Chromium WebView memory back to the OS (Home launcher stays at ~48 MB PSS / 1.4 MB Java heap).
+  - **Zero RAM Leak**: Runs in an isolated `:radar` process that terminates immediately on exit/wake, returning 100% of Chromium WebView memory back to the OS (Home launcher stays at ~47 MB PSS / ~0.8 MB Java heap).
   - **Interactive Remote Controls**: Click **`Radar`** in the top bar anytime (`OK` = Play/Pause, `Up/Down` = Zoom, `Left/Right` = Step scan, `Back` = Close).
 - **Built-in Hardware Sleep Timer (`☾ Zzz`)**:
   - Click the top-bar **`☾ Zzz`** chip to cycle presets (`OFF` → `15m` → `30m` → `45m` → `60m` → `90m` → `120m` → `OFF`), or **long-press** to cancel immediately.
-  - Displays a live countdown in the header (`☾ 30m` → `☾ 0:59`), warns 1 minute before sleep, and triggers Realtek's native `sleeptimer.SleepTimerRecevier` suspend via `AlarmManager` so it works even after switching to Netflix, YouTube, or DisplayPort.
+  - Displays a live countdown in the header (`30m` → `0:59`), warns 1 minute before sleep, and triggers Realtek's native `sleeptimer.SleepTimerRecevier` suspend via `AlarmManager` so it works even after switching to Netflix, YouTube, or DisplayPort.
 - **Auto-Boot to Any Input (`Boot · DP / USB-C / HDMI 1 / Off`)**:
   - Click the top-bar **`Boot · ...`** chip to cycle through `DP` → `USB-C` → `HDMI 1` → `Off`.
   - Or **long-press** any source tile to set it as the default boot input immediately.
   - Uses both `BOOT_COMPLETED` (`BootReceiver`) and cold-boot uptime fallback so your monitor jumps straight to your workstation on power-on.
-- **Ultra-Low Footprint**: ~50 KB compiled APK, ~1.4 MB Java heap (~48 MB total PSS), zero Gradle bloat, zero ads, zero telemetry/Firebase.
+- **Ultra-Low Footprint**: ~59 KB compiled APK, ~0.8 MB Java heap (~47 MB total PSS), zero Gradle bloat, zero ads, zero telemetry/Firebase.
 
 ## Requirements
 

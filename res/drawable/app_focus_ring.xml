@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<!-- Foreground overlay for full-bleed 16:9 app artwork tiles (inset cleanly inside 13dp clip outline) -->
+<!-- Foreground glass overlay for full-bleed 16:9 app artwork tiles -->
 <selector xmlns:android="http://schemas.android.com/apk/res/android">
     <item android:state_focused="true">
         <layer-list>
@@ -9,29 +9,41 @@
                     <gradient
                         android:type="linear"
                         android:angle="315"
-                        android:startColor="#24FFFFFF"
+                        android:startColor="#20FFFFFF"
                         android:centerColor="#04FFFFFF"
                         android:endColor="#00FFFFFF" />
                     <corners android:radius="13dp" />
                 </shape>
             </item>
-            <!-- Crisp pure luminous white specular focus ring inset cleanly inside the 13dp clip -->
-            <item android:left="1dp" android:top="1dp" android:right="1dp" android:bottom="1dp">
+            <!-- Crisp 1.5dp luminous white focus ring inset cleanly inside 13dp clip -->
+            <item android:left="0.75dp" android:top="0.75dp" android:right="0.75dp" android:bottom="0.75dp">
                 <shape android:shape="rectangle">
                     <solid android:color="#00000000" />
-                    <stroke android:width="2dp" android:color="#F4FFFFFF" />
-                    <corners android:radius="12dp" />
+                    <stroke android:width="1.5dp" android:color="#F6FFFFFF" />
+                    <corners android:radius="12.25dp" />
                 </shape>
             </item>
         </layer-list>
     </item>
     <item>
-        <!-- Hairline inner glass edge so dark-background banners stay defined on obsidian -->
         <layer-list>
+            <!-- Whisper-subtle bottom cinema vignette so tiles settle into obsidian -->
+            <item>
+                <shape android:shape="rectangle">
+                    <gradient
+                        android:type="linear"
+                        android:angle="90"
+                        android:startColor="#24040508"
+                        android:centerColor="#05040508"
+                        android:endColor="#00000000" />
+                    <corners android:radius="13dp" />
+                </shape>
+            </item>
+            <!-- Hairline inner glass edge so dark-background banners stay defined on obsidian -->
             <item android:left="0.5dp" android:top="0.5dp" android:right="0.5dp" android:bottom="0.5dp">
                 <shape android:shape="rectangle">
                     <solid android:color="#00000000" />
-                    <stroke android:width="1dp" android:color="#1CFFFFFF" />
+                    <stroke android:width="1dp" android:color="#1EFFFFFF" />
                     <corners android:radius="12.5dp" />
                 </shape>
             </item>

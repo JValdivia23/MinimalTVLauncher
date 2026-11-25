@@ -6,16 +6,20 @@
             <gradient
                 android:type="linear"
                 android:angle="270"
-                android:startColor="#30FFFFFF"
+                android:startColor="#36FFFFFF"
                 android:centerColor="#14FFFFFF"
-                android:endColor="#0AFFFFFF" />
-            <corners android:radius="24dp" />
+                android:endColor="#08FFFFFF" />
+            <corners android:radius="22dp" />
         </shape>
     </item>
     <item android:left="1dp" android:top="1dp" android:right="1dp" android:bottom="1dp">
         <shape android:shape="rectangle">
-            <solid android:color="#D60E1117" />
-            <corners android:radius="23dp" />
+            <gradient
+                android:type="linear"
+                android:angle="270"
+                android:startColor="#E0141822"
+                android:endColor="#E00B0E14" />
+            <corners android:radius="21dp" />
         </shape>
     </item>
 </layer-list>

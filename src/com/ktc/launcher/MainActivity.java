@@ -8,11 +8,14 @@ import android.content.IntentFilter;
 import android.content.pm.PackageManager;
 import android.content.pm.ResolveInfo;
 import android.graphics.Color;
+import android.graphics.ColorMatrix;
+import android.graphics.ColorMatrixColorFilter;
 import android.graphics.Outline;
 import android.graphics.PorterDuff;
 import android.graphics.Rect;
 import android.graphics.Typeface;
 import android.graphics.drawable.Drawable;
+import android.graphics.drawable.GradientDrawable;
 import android.os.Bundle;
 import android.os.Handler;
 import android.os.Looper;
@@ -52,10 +55,11 @@ import java.util.Set;
  * KTC A32Q8 (Realtek RTD2851F) Smart Monitor.
  *
  * Features:
- * - Zero-blur dynamic ambient radial backlight that shifts smoothly with the focused tile
- * - Frosted obsidian glass utility capsule (Radar, Sleep Timer, Auto-Boot target, Settings)
- * - Sleek specular hardware source dock (DisplayPort, USB-C, HDMI 1, All Inputs) with live LED & BOOT badge
- * - Full-bleed 16:9 spatial app tiles with luminous specular focus rings, native colored GPU shadows, and floating labels
+ * - Zero-blur dynamic dual-tone ambient radial backlight + micro-noise anti-banding texture
+ * - Frosted obsidian glass utility capsule (Radar, Sleep Timer, Auto-Boot) + circular Settings button
+ * - Machined specular hardware source dock (DisplayPort, USB-C, HDMI 1, recessed All Inputs)
+ * - True 16:9 cinema app gallery with rest-state dimming, automatic white-slab obsidian remapping,
+ *   bespoke system utility lockups, and tvOS-style focus-reveal floating titles
  */
 public class MainActivity extends Activity {
 
@@ -70,10 +74,15 @@ public class MainActivity extends Activity {
     private static final int ACCENT_SLEEP = 0xFFA78BFA;
     private static final int ACCENT_BOOT = 0xFF34D399;
     private static final int ACCENT_SETTINGS = 0xFF94A3B8;
+    private static final int ACCENT_MEDIA = 0xFF38BDF8;
+    private static final int ACCENT_MIRACAST = 0xFF818CF8;
+
+    private static final ColorMatrixColorFilter REST_TILE_DIM_FILTER = createBrightnessFilter(0.82f);
 
     private static boolean coldBootAutoSwitchAttempted = false;
 
     private FrameLayout rootFrame;
+    private ScrollView mainScrollView;
     private AmbientBackdropDrawable ambientBackdrop;
     private LinearLayout inputsRow;
     private LinearLayout appsGridContainer;
@@ -87,14 +96,39 @@ public class MainActivity extends Activity {
     private LinearLayout autoBootButton;
     private ImageView autoBootIconView;
     private TextView autoBootLabelView;
-    private LinearLayout settingsButton;
+    private FrameLayout settingsButton;
 
     private View firstInputCard;
     private final int[] locBuf = new int[2];
 
     private final Handler clockHandler = new Handler(Looper.getMainLooper());
-    private final SimpleDateFormat timeFormat = new SimpleDateFormat("h:mm a", Locale.getDefault());
-    private final SimpleDateFormat dateFormat = new SimpleDateFormat("EEE, MMM d", Locale.getDefault());
+    private final SimpleDateFormat timeFormat = new SimpleDateFormat("h:mm a", Locale.US);
+    private final SimpleDateFormat dateFormat = new SimpleDateFormat("EEE, MMM d", Locale.US);
+
+    private static ColorMatrixColorFilter createBrightnessFilter(float scale) {
+        ColorMatrix cm = new ColorMatrix();
+        cm.setScale(scale, scale, scale, 1f);
+        return new ColorMatrixColorFilter(cm);
+    }
+
+    /**
+     * Enforces an exact 16:9 aspect ratio for app tiles across all display densities.
+     */
+    private static final class AspectRatioFrameLayout extends FrameLayout {
+        AspectRatioFrameLayout(Context context) {
+            super(context);
+        }
+
+        @Override
+        protected void onMeasure(int widthMeasureSpec, int heightMeasureSpec) {
+            int width = MeasureSpec.getSize(widthMeasureSpec);
+            int exactHeight = Math.round(width * 9f / 16f);
+            super.onMeasure(
+                    MeasureSpec.makeMeasureSpec(width, MeasureSpec.EXACTLY),
+                    MeasureSpec.makeMeasureSpec(exactHeight, MeasureSpec.EXACTLY)
+            );
+        }
+    }
 
     private final Runnable clockTick = new Runnable() {
         @Override
@@ -142,6 +176,14 @@ public class MainActivity extends Activity {
         refreshInputsRow(-1);
         if (firstInputCard != null) {
             firstInputCard.requestFocus();
+            firstInputCard.post(new Runnable() {
+                @Override
+                public void run() {
+                    if (getCurrentFocus() == null && firstInputCard != null) {
+                        firstInputCard.requestFocus();
+                    }
+                }
+            });
         }
     }
 
@@ -162,7 +204,6 @@ public class MainActivity extends Activity {
 
     @Override
     public void onBackPressed() {
-        // Pressing Back on home returns focus cleanly to the primary source card
         if (firstInputCard != null) {
             firstInputCard.requestFocus();
         }
@@ -199,18 +240,34 @@ public class MainActivity extends Activity {
         rootFrame.setClipChildren(false);
         rootFrame.setClipToPadding(false);
 
-        ScrollView scrollView = new ScrollView(this);
-        scrollView.setFillViewport(true);
-        scrollView.setVerticalScrollBarEnabled(false);
-        scrollView.setOverScrollMode(View.OVER_SCROLL_NEVER);
-        scrollView.setClipToPadding(false);
-        scrollView.setClipChildren(false);
+        mainScrollView = new ScrollView(this) {
+            @Override
+            protected float getTopFadingEdgeStrength() {
+                return getScrollY() <= dp(6) ? 0f : super.getTopFadingEdgeStrength();
+            }
+
+            @Override
+            protected float getBottomFadingEdgeStrength() {
+                View child = getChildCount() > 0 ? getChildAt(0) : null;
+                if (child == null) return 0f;
+                int remaining = child.getBottom() - (getScrollY() + getHeight());
+                if (remaining <= dp(8)) return 0f;
+                // Keep bottom fade gentle at rest so Row 2 tiles stay 100% crisp
+                if (getScrollY() <= dp(6)) return 0.35f;
+                return super.getBottomFadingEdgeStrength();
+            }
+        };
+        mainScrollView.setFillViewport(true);
+        mainScrollView.setVerticalScrollBarEnabled(false);
+        mainScrollView.setOverScrollMode(View.OVER_SCROLL_NEVER);
+        mainScrollView.setVerticalFadingEdgeEnabled(true);
+        mainScrollView.setFadingEdgeLength(dp(34));
 
         LinearLayout root = new LinearLayout(this);
         root.setOrientation(LinearLayout.VERTICAL);
         root.setClipToPadding(false);
         root.setClipChildren(false);
-        root.setPadding(dp(48), dp(26), dp(48), dp(54));
+        root.setPadding(dp(48), dp(32), dp(48), dp(44));
 
         // --- QUIET SPATIAL HEADER BAR ---
         LinearLayout header = new LinearLayout(this);
@@ -220,7 +277,7 @@ public class MainActivity extends Activity {
         header.setClipChildren(false);
         LinearLayout.LayoutParams headerLp = new LinearLayout.LayoutParams(
                 ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT);
-        headerLp.bottomMargin = dp(24);
+        headerLp.bottomMargin = dp(28);
         root.addView(header, headerLp);
 
         // Left: Refined hardware identity
@@ -229,17 +286,17 @@ public class MainActivity extends Activity {
 
         TextView brand = new TextView(this);
         brand.setText("KTC A32Q8");
-        brand.setTextColor(0xF0F1F5F9);
+        brand.setTextColor(0xF5F8FAFC);
         brand.setTextSize(TypedValue.COMPLEX_UNIT_SP, 20);
-        brand.setLetterSpacing(0.01f);
+        brand.setLetterSpacing(0.015f);
         brand.setTypeface(Typeface.create("sans-serif-medium", Typeface.NORMAL));
         titleCol.addView(brand);
 
         TextView sub = new TextView(this);
         sub.setText("Open Smart Monitor");
-        sub.setTextColor(0x5CFFFFFF);
+        sub.setTextColor(0x8894A3B8);
         sub.setTextSize(TypedValue.COMPLEX_UNIT_SP, 11);
-        sub.setLetterSpacing(0.02f);
+        sub.setLetterSpacing(0.025f);
         LinearLayout.LayoutParams subLp = new LinearLayout.LayoutParams(
                 ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT);
         subLp.topMargin = dp(1);
@@ -247,12 +304,12 @@ public class MainActivity extends Activity {
 
         header.addView(titleCol, new LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f));
 
-        // Center-Right: Unified frosted obsidian glass utility capsule
+        // Center-Right: 3-chip frosted obsidian utility capsule + standalone circular Settings button
         LinearLayout controlCapsule = new LinearLayout(this);
         controlCapsule.setOrientation(LinearLayout.HORIZONTAL);
         controlCapsule.setGravity(Gravity.CENTER_VERTICAL);
         controlCapsule.setBackgroundResource(R.drawable.glass_capsule_bg);
-        controlCapsule.setPadding(dp(5), dp(4), dp(5), dp(4));
+        controlCapsule.setPadding(dp(4), dp(4), dp(4), dp(4));
         controlCapsule.setClipChildren(false);
         controlCapsule.setClipToPadding(false);
 
@@ -274,16 +331,19 @@ public class MainActivity extends Activity {
         updateAutoBootPill();
         controlCapsule.addView(autoBootButton);
 
-        controlCapsule.addView(createCapsuleDivider());
-
-        settingsButton = createSettingsChip();
-        settingsButton.setId(View.generateViewId());
-        controlCapsule.addView(settingsButton);
-
         LinearLayout.LayoutParams capsuleLp = new LinearLayout.LayoutParams(
                 ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT);
-        capsuleLp.rightMargin = dp(24);
+        capsuleLp.rightMargin = dp(10);
         header.addView(controlCapsule, capsuleLp);
+
+        settingsButton = createSettingsButton();
+        settingsButton.setId(View.generateViewId());
+        autoBootButton.setNextFocusRightId(settingsButton.getId());
+        settingsButton.setNextFocusLeftId(autoBootButton.getId());
+
+        LinearLayout.LayoutParams settingsLp = new LinearLayout.LayoutParams(dp(38), dp(38));
+        settingsLp.rightMargin = dp(26);
+        header.addView(settingsButton, settingsLp);
 
         // Far Right: Editorial tabular clock
         LinearLayout clockCol = new LinearLayout(this);
@@ -299,7 +359,7 @@ public class MainActivity extends Activity {
         clockCol.addView(clockView);
 
         dateView = new TextView(this);
-        dateView.setTextColor(0x66FFFFFF);
+        dateView.setTextColor(0x8894A3B8);
         dateView.setTextSize(TypedValue.COMPLEX_UNIT_SP, 11.5f);
         dateView.setLetterSpacing(0.02f);
         clockCol.addView(dateView);
@@ -307,7 +367,7 @@ public class MainActivity extends Activity {
         header.addView(clockCol);
 
         // --- SOURCES SECTION ---
-        root.addView(createSectionHeader("Sources"), sectionLp(dp(10)));
+        root.addView(createSectionHeader("Sources"), sectionLp(dp(11)));
 
         inputsRow = new LinearLayout(this);
         inputsRow.setOrientation(LinearLayout.HORIZONTAL);
@@ -317,30 +377,30 @@ public class MainActivity extends Activity {
 
         LinearLayout.LayoutParams inputsRowLp = new LinearLayout.LayoutParams(
                 ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT);
-        inputsRowLp.bottomMargin = dp(24);
+        inputsRowLp.bottomMargin = dp(30);
         root.addView(inputsRow, inputsRowLp);
 
         // --- APPS SECTION ---
-        root.addView(createSectionHeader("Apps"), sectionLp(dp(12)));
+        root.addView(createSectionHeader("Apps"), sectionLp(dp(13)));
 
         appsGridContainer = new LinearLayout(this);
         appsGridContainer.setOrientation(LinearLayout.VERTICAL);
         appsGridContainer.setClipToPadding(false);
         appsGridContainer.setClipChildren(false);
-        appsGridContainer.setPadding(0, dp(2), 0, dp(20));
+        appsGridContainer.setPadding(0, dp(2), 0, dp(16));
         root.addView(appsGridContainer, new LinearLayout.LayoutParams(
                 ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT));
 
-        scrollView.addView(root);
-        rootFrame.addView(scrollView, new FrameLayout.LayoutParams(
+        mainScrollView.addView(root);
+        rootFrame.addView(mainScrollView, new FrameLayout.LayoutParams(
                 ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT));
         setContentView(rootFrame);
     }
 
     private View createCapsuleDivider() {
         View divider = new View(this);
-        divider.setBackgroundColor(0x1AFFFFFF);
-        LinearLayout.LayoutParams lp = new LinearLayout.LayoutParams(dp(1), dp(14));
+        divider.setBackgroundColor(0x16FFFFFF);
+        LinearLayout.LayoutParams lp = new LinearLayout.LayoutParams(dp(1), dp(13));
         lp.leftMargin = dp(2);
         lp.rightMargin = dp(2);
         divider.setLayoutParams(lp);
@@ -352,10 +412,10 @@ public class MainActivity extends Activity {
         chip.setOrientation(LinearLayout.HORIZONTAL);
         chip.setGravity(Gravity.CENTER_VERTICAL);
         chip.setBackgroundResource(R.drawable.glass_chip_bg);
-        chip.setPadding(dp(padStartDp), dp(7), dp(padEndDp), dp(7));
+        chip.setPadding(dp(padStartDp), dp(6), dp(padEndDp), dp(6));
         chip.setFocusable(true);
         chip.setClickable(true);
-        applyRoundedOutline(chip, dp(20), false);
+        applyRoundedOutline(chip, dp(18), false);
         return chip;
     }
 
@@ -365,13 +425,13 @@ public class MainActivity extends Activity {
         ImageView icon = new ImageView(this);
         icon.setImageResource(R.drawable.ic_radar);
         icon.setScaleType(ImageView.ScaleType.FIT_CENTER);
-        LinearLayout.LayoutParams iconLp = new LinearLayout.LayoutParams(dp(16), dp(16));
+        LinearLayout.LayoutParams iconLp = new LinearLayout.LayoutParams(dp(15), dp(15));
         iconLp.rightMargin = dp(7);
         chip.addView(icon, iconLp);
 
         TextView label = new TextView(this);
         label.setText("Radar");
-        label.setTextColor(0xD9FFFFFF);
+        label.setTextColor(0xDCFFFFFF);
         label.setTextSize(TypedValue.COMPLEX_UNIT_SP, 12.5f);
         label.setTypeface(Typeface.create("sans-serif-medium", Typeface.NORMAL));
         chip.addView(label);
@@ -394,7 +454,7 @@ public class MainActivity extends Activity {
         sleepIconView = new ImageView(this);
         sleepIconView.setImageResource(R.drawable.ic_sleep);
         sleepIconView.setScaleType(ImageView.ScaleType.FIT_CENTER);
-        LinearLayout.LayoutParams iconLp = new LinearLayout.LayoutParams(dp(15), dp(15));
+        LinearLayout.LayoutParams iconLp = new LinearLayout.LayoutParams(dp(14), dp(14));
         iconLp.rightMargin = dp(6);
         chip.addView(sleepIconView, iconLp);
 
@@ -443,7 +503,7 @@ public class MainActivity extends Activity {
         autoBootIconView = new ImageView(this);
         autoBootIconView.setImageResource(R.drawable.ic_boot);
         autoBootIconView.setScaleType(ImageView.ScaleType.FIT_CENTER);
-        LinearLayout.LayoutParams iconLp = new LinearLayout.LayoutParams(dp(15), dp(15));
+        LinearLayout.LayoutParams iconLp = new LinearLayout.LayoutParams(dp(14), dp(14));
         iconLp.rightMargin = dp(6);
         chip.addView(autoBootIconView, iconLp);
 
@@ -470,19 +530,23 @@ public class MainActivity extends Activity {
         return chip;
     }
 
-    private LinearLayout createSettingsChip() {
-        LinearLayout chip = createBaseGlassChip(12, 12);
-        chip.setContentDescription("Settings");
+    private FrameLayout createSettingsButton() {
+        FrameLayout btn = new FrameLayout(this);
+        btn.setBackgroundResource(R.drawable.circle_glass_btn_bg);
+        btn.setContentDescription("Settings");
+        btn.setFocusable(true);
+        btn.setClickable(true);
+        applyRoundedOutline(btn, dp(19), false);
 
         ImageView icon = new ImageView(this);
         icon.setImageResource(R.drawable.ic_settings);
         icon.setScaleType(ImageView.ScaleType.FIT_CENTER);
-        icon.setColorFilter(0xD0FFFFFF, PorterDuff.Mode.SRC_IN);
-        chip.addView(icon, new LinearLayout.LayoutParams(dp(17), dp(17)));
+        icon.setColorFilter(0xD8FFFFFF, PorterDuff.Mode.SRC_IN);
+        btn.addView(icon, new FrameLayout.LayoutParams(dp(17), dp(17), Gravity.CENTER));
 
-        attachChipFocusEffect(chip, ACCENT_SETTINGS);
+        attachChipFocusEffect(btn, ACCENT_SETTINGS);
 
-        chip.setOnClickListener(new View.OnClickListener() {
+        btn.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View v) {
                 try {
@@ -494,16 +558,16 @@ public class MainActivity extends Activity {
                 }
             }
         });
-        return chip;
+        return btn;
     }
 
     private void updateSleepPill() {
         if (sleepLabelView == null) return;
         boolean active = SleepTimerHelper.isActive(this);
         sleepLabelView.setText(SleepTimerHelper.formatPillLabel(this));
-        sleepLabelView.setTextColor(active ? 0xFFC4B5FD : 0xCCFFFFFF);
+        sleepLabelView.setTextColor(active ? 0xFFDDD6FE : 0xDCFFFFFF);
         if (sleepIconView != null) {
-            sleepIconView.setColorFilter(active ? 0xFFC4B5FD : 0xCCFFFFFF, PorterDuff.Mode.SRC_IN);
+            sleepIconView.setColorFilter(active ? 0xFFC4B5FD : 0xB8FFFFFF, PorterDuff.Mode.SRC_IN);
         }
     }
 
@@ -513,13 +577,14 @@ public class MainActivity extends Activity {
         boolean off = "OFF".equals(target);
         if (off) {
             autoBootLabelView.setText("Boot · Off");
-            autoBootLabelView.setTextColor(0x88FFFFFF);
+            autoBootLabelView.setTextColor(0x78FFFFFF);
             if (autoBootIconView != null) {
-                autoBootIconView.setColorFilter(0x88FFFFFF, PorterDuff.Mode.SRC_IN);
+                autoBootIconView.setColorFilter(0x70FFFFFF, PorterDuff.Mode.SRC_IN);
             }
         } else {
+            // Calm unified label; emerald reserved strictly for icon & live signal LED
             autoBootLabelView.setText("Boot · " + target);
-            autoBootLabelView.setTextColor(0xFF86EFAC);
+            autoBootLabelView.setTextColor(0xDCFFFFFF);
             if (autoBootIconView != null) {
                 autoBootIconView.setColorFilter(0xFF34D399, PorterDuff.Mode.SRC_IN);
             }
@@ -534,7 +599,7 @@ public class MainActivity extends Activity {
             if (spaceIdx > 0 && spaceIdx < raw.length() - 1) {
                 SpannableString ss = new SpannableString(raw);
                 ss.setSpan(new RelativeSizeSpan(0.46f), spaceIdx + 1, raw.length(), Spanned.SPAN_EXCLUSIVE_EXCLUSIVE);
-                ss.setSpan(new ForegroundColorSpan(0x75FFFFFF), spaceIdx + 1, raw.length(), Spanned.SPAN_EXCLUSIVE_EXCLUSIVE);
+                ss.setSpan(new ForegroundColorSpan(0x8C94A3B8), spaceIdx + 1, raw.length(), Spanned.SPAN_EXCLUSIVE_EXCLUSIVE);
                 clockView.setText(ss);
             } else {
                 clockView.setText(raw);
@@ -573,7 +638,7 @@ public class MainActivity extends Activity {
                 restoreTarget = card;
             }
 
-            LinearLayout.LayoutParams lp = new LinearLayout.LayoutParams(0, dp(74), 1f);
+            LinearLayout.LayoutParams lp = new LinearLayout.LayoutParams(0, dp(72), 1f);
             lp.rightMargin = dp(14);
             inputsRow.addView(card, lp);
         }
@@ -587,7 +652,7 @@ public class MainActivity extends Activity {
         popupCard.setId(View.generateViewId());
         popupCard.setNextFocusUpId(settingsButton.getId());
         settingsButton.setNextFocusDownId(popupCard.getId());
-        LinearLayout.LayoutParams popupLp = new LinearLayout.LayoutParams(0, dp(74), 0.80f);
+        LinearLayout.LayoutParams popupLp = new LinearLayout.LayoutParams(0, dp(72), 0.78f);
         inputsRow.addView(popupCard, popupLp);
 
         if (restoreTarget != null) {
@@ -609,29 +674,54 @@ public class MainActivity extends Activity {
         return rawSubtitle.replace(" • Active", "").replace("• Active", "").trim();
     }
 
+    private Drawable createPortWashOverlay(int accentColor, int leftAlpha) {
+        int start = Color.argb(leftAlpha, Color.red(accentColor), Color.green(accentColor), Color.blue(accentColor));
+        GradientDrawable gd = new GradientDrawable(
+                GradientDrawable.Orientation.LEFT_RIGHT,
+                new int[] { start, 0x00000000 }
+        );
+        gd.setCornerRadius(dp(15));
+        return gd;
+    }
+
     private View createInputCard(final InputManagerHelper.InputItem item, final int cardIndex) {
-        LinearLayout card = new LinearLayout(this);
-        card.setOrientation(LinearLayout.HORIZONTAL);
-        card.setGravity(Gravity.CENTER_VERTICAL);
+        final int accent = accentForInput(item);
+
+        FrameLayout card = new FrameLayout(this);
         card.setBackgroundResource(R.drawable.source_tile_bg);
-        card.setPadding(dp(12), dp(10), dp(12), dp(10));
         card.setFocusable(true);
         card.setFocusableInTouchMode(false);
         card.setClickable(true);
-        applyRoundedOutline(card, dp(16), false);
+        applyRoundedOutline(card, dp(16), true);
 
-        // Subtle glass icon well
+        // Subtle internal port-accent wash bleeding gently rightward from the connector well
+        final View portWash = new View(this);
+        portWash.setBackground(createPortWashOverlay(accent, item.active ? 0x12 : 0x00));
+        FrameLayout.LayoutParams washLp = new FrameLayout.LayoutParams(
+                ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT);
+        washLp.setMargins(dp(1), dp(1), dp(1), dp(1));
+        card.addView(portWash, washLp);
+
+        LinearLayout content = new LinearLayout(this);
+        content.setOrientation(LinearLayout.HORIZONTAL);
+        content.setGravity(Gravity.CENTER_VERTICAL);
+        content.setDuplicateParentStateEnabled(true);
+        content.setPadding(dp(13), dp(10), dp(13), dp(10));
+        card.addView(content, new FrameLayout.LayoutParams(
+                ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT));
+
+        // Carved borderless obsidian icon well
         FrameLayout iconWell = new FrameLayout(this);
+        iconWell.setDuplicateParentStateEnabled(true);
         iconWell.setBackgroundResource(R.drawable.icon_well_bg);
         ImageView icon = new ImageView(this);
         icon.setImageResource(item.iconRes);
         icon.setScaleType(ImageView.ScaleType.FIT_CENTER);
-        FrameLayout.LayoutParams iconLp = new FrameLayout.LayoutParams(dp(24), dp(24), Gravity.CENTER);
-        iconWell.addView(icon, iconLp);
+        iconWell.addView(icon, new FrameLayout.LayoutParams(dp(23), dp(23), Gravity.CENTER));
 
         LinearLayout.LayoutParams wellLp = new LinearLayout.LayoutParams(dp(40), dp(40));
-        wellLp.rightMargin = dp(10);
-        card.addView(iconWell, wellLp);
+        wellLp.rightMargin = dp(11);
+        content.addView(iconWell, wellLp);
 
         // Center text stack
         LinearLayout textCol = new LinearLayout(this);
@@ -639,7 +729,7 @@ public class MainActivity extends Activity {
 
         TextView title = new TextView(this);
         title.setText(item.label);
-        title.setTextColor(0xFFF4F6FA);
+        title.setTextColor(0xFFF4F7FB);
         title.setTextSize(TypedValue.COMPLEX_UNIT_SP, 15);
         title.setTypeface(Typeface.create("sans-serif-medium", Typeface.NORMAL));
         title.setSingleLine(true);
@@ -657,42 +747,41 @@ public class MainActivity extends Activity {
         if (item.active) {
             View led = new View(this);
             led.setBackgroundResource(R.drawable.dot_active);
-            LinearLayout.LayoutParams ledLp = new LinearLayout.LayoutParams(dp(9), dp(9));
+            LinearLayout.LayoutParams ledLp = new LinearLayout.LayoutParams(dp(8), dp(8));
             ledLp.rightMargin = dp(5);
             statusRow.addView(led, ledLp);
         }
 
         TextView sub = new TextView(this);
         sub.setText(item.active ? (spec.isEmpty() ? "Active" : spec + " · Active") : spec);
-        sub.setTextColor(item.active ? 0xFFA7F3D0 : 0x6EFFFFFF);
+        sub.setTextColor(item.active ? 0xFF86EFAC : 0x8094A3B8);
         sub.setTextSize(TypedValue.COMPLEX_UNIT_SP, 11f);
         sub.setSingleLine(true);
         sub.setEllipsize(TextUtils.TruncateAt.END);
         statusRow.addView(sub);
 
         textCol.addView(statusRow, statusRowLp);
-        card.addView(textCol, new LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f));
+        content.addView(textCol, new LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f));
 
-        // Clean right-aligned BOOT micro-badge
+        // Recessed stroke-free BOOT micro-tag
         boolean isBootDefault = InputManagerHelper.isAutoBootDpEnabled(this)
                 && item.inputId.equals(InputManagerHelper.getDefaultInputId(this));
         if (isBootDefault) {
             TextView bootBadge = new TextView(this);
             bootBadge.setText("BOOT");
-            bootBadge.setTextColor(0xD4FFFFFF);
-            bootBadge.setTextSize(TypedValue.COMPLEX_UNIT_SP, 8.5f);
-            bootBadge.setLetterSpacing(0.10f);
+            bootBadge.setTextColor(0xB8CBD5E1);
+            bootBadge.setTextSize(TypedValue.COMPLEX_UNIT_SP, 8f);
+            bootBadge.setLetterSpacing(0.12f);
             bootBadge.setTypeface(Typeface.create("sans-serif-medium", Typeface.NORMAL));
             bootBadge.setBackgroundResource(R.drawable.badge_boot_bg);
             bootBadge.setPadding(dp(6), dp(2), dp(6), dp(2));
             LinearLayout.LayoutParams badgeLp = new LinearLayout.LayoutParams(
                     ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT);
             badgeLp.leftMargin = dp(6);
-            card.addView(bootBadge, badgeLp);
+            content.addView(bootBadge, badgeLp);
         }
 
-        final int accent = accentForInput(item);
-        attachSourceFocusEffect(card, accent);
+        attachSourceFocusEffect(card, portWash, accent, item.active);
 
         card.setOnClickListener(new View.OnClickListener() {
             @Override
@@ -720,20 +809,22 @@ public class MainActivity extends Activity {
         LinearLayout card = new LinearLayout(this);
         card.setOrientation(LinearLayout.HORIZONTAL);
         card.setGravity(Gravity.CENTER_VERTICAL);
-        card.setBackgroundResource(R.drawable.source_tile_bg);
-        card.setPadding(dp(12), dp(10), dp(12), dp(10));
+        card.setBackgroundResource(R.drawable.utility_tile_bg);
+        card.setPadding(dp(13), dp(10), dp(13), dp(10));
         card.setFocusable(true);
         card.setClickable(true);
         applyRoundedOutline(card, dp(16), false);
 
         FrameLayout iconWell = new FrameLayout(this);
+        iconWell.setDuplicateParentStateEnabled(true);
         iconWell.setBackgroundResource(R.drawable.icon_well_bg);
         ImageView icon = new ImageView(this);
         icon.setImageResource(iconRes);
         icon.setScaleType(ImageView.ScaleType.FIT_CENTER);
-        iconWell.addView(icon, new FrameLayout.LayoutParams(dp(23), dp(23), Gravity.CENTER));
+        icon.setAlpha(0.85f);
+        iconWell.addView(icon, new FrameLayout.LayoutParams(dp(22), dp(22), Gravity.CENTER));
 
-        LinearLayout.LayoutParams wellLp = new LinearLayout.LayoutParams(dp(40), dp(40));
+        LinearLayout.LayoutParams wellLp = new LinearLayout.LayoutParams(dp(38), dp(38));
         wellLp.rightMargin = dp(10);
         card.addView(iconWell, wellLp);
 
@@ -742,8 +833,8 @@ public class MainActivity extends Activity {
 
         TextView title = new TextView(this);
         title.setText(label);
-        title.setTextColor(0xE0F1F5F9);
-        title.setTextSize(TypedValue.COMPLEX_UNIT_SP, 14.5f);
+        title.setTextColor(0xD4F1F5F9);
+        title.setTextSize(TypedValue.COMPLEX_UNIT_SP, 14f);
         title.setTypeface(Typeface.create("sans-serif-medium", Typeface.NORMAL));
         title.setSingleLine(true);
         title.setEllipsize(TextUtils.TruncateAt.END);
@@ -751,8 +842,8 @@ public class MainActivity extends Activity {
 
         TextView sub = new TextView(this);
         sub.setText(subtitle);
-        sub.setTextColor(0x66FFFFFF);
-        sub.setTextSize(TypedValue.COMPLEX_UNIT_SP, 11.5f);
+        sub.setTextColor(0x7094A3B8);
+        sub.setTextSize(TypedValue.COMPLEX_UNIT_SP, 11f);
         sub.setSingleLine(true);
         sub.setEllipsize(TextUtils.TruncateAt.END);
         LinearLayout.LayoutParams subLp = new LinearLayout.LayoutParams(
@@ -762,7 +853,7 @@ public class MainActivity extends Activity {
 
         card.addView(textCol);
 
-        attachSourceFocusEffect(card, ACCENT_OSD);
+        attachSourceFocusEffect(card, null, ACCENT_OSD, false);
         card.setOnClickListener(clickListener);
         return card;
     }
@@ -773,16 +864,38 @@ public class MainActivity extends Activity {
         final String label;
         final Drawable bannerOrIcon;
         final boolean isBanner;
+        final int customLockupIconRes;
         final int accentColor;
 
-        AppEntry(String pkg, String act, String label, Drawable drawable, boolean isBanner, int accentColor) {
+        AppEntry(
+                String pkg,
+                String act,
+                String label,
+                Drawable drawable,
+                boolean isBanner,
+                int customLockupIconRes,
+                int accentColor
+        ) {
             this.packageName = pkg;
             this.activityName = act;
             this.label = label;
             this.bannerOrIcon = drawable;
             this.isBanner = isBanner;
+            this.customLockupIconRes = customLockupIconRes;
             this.accentColor = accentColor;
         }
+    }
+
+    private static int bespokeUtilityIconForPackage(String pkg) {
+        if ("com.rtk.mediabrowser".equals(pkg)) return R.drawable.ic_mediaplayer;
+        if ("com.realtek.miracast".equals(pkg)) return R.drawable.ic_miracast;
+        return 0;
+    }
+
+    private static int bespokeUtilityAccentForPackage(String pkg) {
+        if ("com.rtk.mediabrowser".equals(pkg)) return ACCENT_MEDIA;
+        if ("com.realtek.miracast".equals(pkg)) return ACCENT_MIRACAST;
+        return AmbientBackdropDrawable.DEFAULT_ACCENT;
     }
 
     private void refreshAppsGrid() {
@@ -794,7 +907,6 @@ public class MainActivity extends Activity {
         List<ResolveInfo> resolved = pm.queryIntentActivities(tvIntent, 0);
 
         Set<String> seenPackages = new HashSet<>();
-        // Hide self, Projectivy (if installed), and system Settings (already in top capsule)
         seenPackages.add(getPackageName());
         seenPackages.add("com.spocky.projengmenu");
         seenPackages.add("com.android.tv.settings");
@@ -808,15 +920,25 @@ public class MainActivity extends Activity {
             CharSequence cs = ri.loadLabel(pm);
             String label = cs != null ? cs.toString().trim() : pkg;
 
+            int customIconRes = bespokeUtilityIconForPackage(pkg);
+            if (customIconRes != 0) {
+                int accent = bespokeUtilityAccentForPackage(pkg);
+                apps.add(new AppEntry(pkg, ri.activityInfo.name, label, null, true, customIconRes, accent));
+                continue;
+            }
+
             Drawable banner = ri.activityInfo.loadBanner(pm);
             if (banner == null) {
                 banner = ri.activityInfo.applicationInfo.loadBanner(pm);
             }
             boolean hasBanner = (banner != null);
-            Drawable drawable = hasBanner ? banner : ri.loadIcon(pm);
-            int accent = AmbientBackdropDrawable.extractAccentColor(drawable, AmbientBackdropDrawable.DEFAULT_ACCENT);
+            Drawable rawDrawable = hasBanner ? banner : ri.loadIcon(pm);
+            int accent = AmbientBackdropDrawable.extractAccentColor(rawDrawable, AmbientBackdropDrawable.DEFAULT_ACCENT);
+            Drawable finalDrawable = hasBanner
+                    ? AmbientBackdropDrawable.remapLightBannerIfNeeded(rawDrawable, accent, getResources())
+                    : rawDrawable;
 
-            apps.add(new AppEntry(pkg, ri.activityInfo.name, label, drawable, hasBanner, accent));
+            apps.add(new AppEntry(pkg, ri.activityInfo.name, label, finalDrawable, hasBanner, 0, accent));
         }
 
         Collections.sort(apps, new Comparator<AppEntry>() {
@@ -828,7 +950,9 @@ public class MainActivity extends Activity {
 
         final int columns = 5;
         LinearLayout currentRow = null;
+        int totalRows = (apps.size() + columns - 1) / columns;
         for (int i = 0; i < apps.size(); i++) {
+            int rowIndex = i / columns;
             if (i % columns == 0) {
                 currentRow = new LinearLayout(this);
                 currentRow.setOrientation(LinearLayout.HORIZONTAL);
@@ -836,22 +960,23 @@ public class MainActivity extends Activity {
                 currentRow.setClipChildren(false);
                 LinearLayout.LayoutParams rowLp = new LinearLayout.LayoutParams(
                         ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT);
-                rowLp.bottomMargin = dp(18);
+                // Give Row 2 extra bottom margin so Row 3 sits cleanly below the 1080p home fold
+                rowLp.bottomMargin = (rowIndex == 1 && totalRows > 2) ? dp(28) : dp(13);
                 appsGridContainer.addView(currentRow, rowLp);
             }
 
-            View appTile = createAppTile(apps.get(i), currentRow);
+            View appTile = createAppTile(apps.get(i), currentRow, rowIndex);
             LinearLayout.LayoutParams lp = new LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f);
             lp.rightMargin = ((i + 1) % columns == 0) ? 0 : dp(18);
             currentRow.addView(appTile, lp);
         }
 
-        // Pad last row with invisible spacers so tile widths stay uniform
+        // Pad last row with invisible 16:9 spacers so tile widths stay uniform
         int remainder = apps.size() % columns;
         if (remainder != 0 && currentRow != null) {
             for (int j = remainder; j < columns; j++) {
-                View spacer = new View(this);
-                LinearLayout.LayoutParams lp = new LinearLayout.LayoutParams(0, dp(90), 1f);
+                View spacer = new AspectRatioFrameLayout(this);
+                LinearLayout.LayoutParams lp = new LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f);
                 lp.rightMargin = (j == columns - 1) ? 0 : dp(18);
                 currentRow.addView(spacer, lp);
             }
@@ -859,11 +984,11 @@ public class MainActivity extends Activity {
     }
 
     /**
-     * Builds a full-bleed 16:9 spatial app tile with zero outer card box:
-     * artwork fills the rounded tile edge-to-edge, focus draws a luminous specular glass ring
-     * + native colored GPU drop shadow, and the title floats cleanly below.
+     * Builds a true 16:9 spatial app tile:
+     * - Unfocused tiles rest slightly dimmed (0.86x) so only the focused tile blooms to 100% brilliance
+     * - Banner tiles hide redundant text labels at rest and reveal them smoothly on focus (tvOS style)
      */
-    private View createAppTile(final AppEntry app, final View parentRow) {
+    private View createAppTile(final AppEntry app, final View parentRow, final int rowIndex) {
         LinearLayout container = new LinearLayout(this);
         container.setOrientation(LinearLayout.VERTICAL);
         container.setGravity(Gravity.CENTER_HORIZONTAL);
@@ -872,19 +997,53 @@ public class MainActivity extends Activity {
         container.setClipChildren(false);
         container.setClipToPadding(false);
 
-        // Full-bleed 16:9 artwork frame
-        final FrameLayout tileBox = new FrameLayout(this);
+        final AspectRatioFrameLayout tileBox = new AspectRatioFrameLayout(this);
         tileBox.setDuplicateParentStateEnabled(true);
-        tileBox.setBackgroundColor(0xFF10131A);
+        tileBox.setBackgroundColor(0xFF0E1118);
         applyRoundedOutline(tileBox, dp(13), true);
         tileBox.setForeground(getDrawable(R.drawable.app_focus_ring));
 
-        if (app.isBanner) {
+        ImageView dimmableArt = null;
+        View dimmableLockup = null;
+
+        if (app.customLockupIconRes != 0) {
+            View tintedBg = new View(this);
+            tintedBg.setBackground(AmbientBackdropDrawable.createIconTileBackdrop(app.accentColor, dp(115)));
+            tileBox.addView(tintedBg, new FrameLayout.LayoutParams(
+                    ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT));
+
+            LinearLayout lockup = new LinearLayout(this);
+            lockup.setOrientation(LinearLayout.HORIZONTAL);
+            lockup.setGravity(Gravity.CENTER);
+            lockup.setAlpha(0.88f);
+
+            ImageView glyph = new ImageView(this);
+            glyph.setImageResource(app.customLockupIconRes);
+            glyph.setScaleType(ImageView.ScaleType.FIT_CENTER);
+            LinearLayout.LayoutParams glyphLp = new LinearLayout.LayoutParams(dp(26), dp(26));
+            glyphLp.rightMargin = dp(9);
+            lockup.addView(glyph, glyphLp);
+
+            TextView lockupText = new TextView(this);
+            lockupText.setText(app.label);
+            lockupText.setTextColor(0xFFF1F5F9);
+            lockupText.setTextSize(TypedValue.COMPLEX_UNIT_SP, 15f);
+            lockupText.setLetterSpacing(0.01f);
+            lockupText.setTypeface(Typeface.create("sans-serif-medium", Typeface.NORMAL));
+            lockupText.setSingleLine(true);
+            lockup.addView(lockupText);
+
+            tileBox.addView(lockup, new FrameLayout.LayoutParams(
+                    ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT, Gravity.CENTER));
+            dimmableLockup = lockup;
+        } else if (app.isBanner) {
             ImageView img = new ImageView(this);
             img.setImageDrawable(app.bannerOrIcon);
             img.setScaleType(ImageView.ScaleType.CENTER_CROP);
+            img.setColorFilter(REST_TILE_DIM_FILTER);
             tileBox.addView(img, new FrameLayout.LayoutParams(
                     ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT));
+            dimmableArt = img;
         } else {
             View tintedBg = new View(this);
             tintedBg.setBackground(AmbientBackdropDrawable.createIconTileBackdrop(app.accentColor, dp(110)));
@@ -894,28 +1053,42 @@ public class MainActivity extends Activity {
             ImageView icon = new ImageView(this);
             icon.setImageDrawable(app.bannerOrIcon);
             icon.setScaleType(ImageView.ScaleType.FIT_CENTER);
+            icon.setColorFilter(REST_TILE_DIM_FILTER);
             tileBox.addView(icon, new FrameLayout.LayoutParams(dp(46), dp(46), Gravity.CENTER));
+            dimmableArt = icon;
         }
 
         container.addView(tileBox, new LinearLayout.LayoutParams(
-                ViewGroup.LayoutParams.MATCH_PARENT, dp(90)));
+                ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT));
 
-        // Floating title below the tile (muted at rest, illuminates on focus)
+        final boolean hideLabelAtRest = app.isBanner;
         final TextView label = new TextView(this);
         label.setText(app.label);
-        label.setTextColor(0xFFF8FAFC);
-        label.setAlpha(0.54f);
-        label.setTextSize(TypedValue.COMPLEX_UNIT_SP, 12);
+        label.setTextColor(0xFFF1F5F9);
+        label.setAlpha(hideLabelAtRest ? 0f : 0.56f);
+        label.setTranslationY(hideLabelAtRest ? -dp(2) : 0f);
+        label.setTextSize(TypedValue.COMPLEX_UNIT_SP, 11.5f);
+        label.setLetterSpacing(0.01f);
         label.setTypeface(Typeface.create("sans-serif-medium", Typeface.NORMAL));
         label.setSingleLine(true);
         label.setEllipsize(TextUtils.TruncateAt.END);
         label.setGravity(Gravity.CENTER);
         LinearLayout.LayoutParams labelLp = new LinearLayout.LayoutParams(
                 ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT);
-        labelLp.topMargin = dp(7);
+        labelLp.topMargin = dp(5);
         container.addView(label, labelLp);
 
-        attachAppFocusEffect(container, tileBox, label, parentRow, app.accentColor);
+        attachAppFocusEffect(
+                container,
+                tileBox,
+                dimmableArt,
+                dimmableLockup,
+                label,
+                hideLabelAtRest,
+                parentRow,
+                rowIndex,
+                app.accentColor
+        );
 
         container.setOnClickListener(new View.OnClickListener() {
             @Override
@@ -947,9 +1120,9 @@ public class MainActivity extends Activity {
     private TextView createSectionHeader(String text) {
         TextView tv = new TextView(this);
         tv.setText(text);
-        tv.setTextColor(0x6BFFFFFF);
-        tv.setTextSize(TypedValue.COMPLEX_UNIT_SP, 12.5f);
-        tv.setLetterSpacing(0.03f);
+        tv.setTextColor(0x7894A3B8);
+        tv.setTextSize(TypedValue.COMPLEX_UNIT_SP, 12f);
+        tv.setLetterSpacing(0.04f);
         tv.setTypeface(Typeface.create("sans-serif-medium", Typeface.NORMAL));
         return tv;
     }
@@ -988,12 +1161,18 @@ public class MainActivity extends Activity {
                     v.setOutlineSpotShadowColor(accentColor);
                     v.setOutlineAmbientShadowColor(accentColor);
                     updateAmbientForView(v, accentColor);
+                    scrollHomeToTop();
                 }
             }
         });
     }
 
-    private void attachSourceFocusEffect(final View card, final int accentColor) {
+    private void attachSourceFocusEffect(
+            final View card,
+            final View portWash,
+            final int accentColor,
+            final boolean isActivePort
+    ) {
         card.setOnFocusChangeListener(new View.OnFocusChangeListener() {
             @Override
             public void onFocusChange(final View v, boolean hasFocus) {
@@ -1006,11 +1185,17 @@ public class MainActivity extends Activity {
                         .start();
                 v.setElevation(hasFocus ? dp(16) : 0f);
                 v.setTranslationZ(hasFocus ? dp(6) : 0f);
+                if (portWash != null) {
+                    portWash.setBackground(createPortWashOverlay(
+                            accentColor,
+                            hasFocus ? 0x24 : (isActivePort ? 0x12 : 0x00)
+                    ));
+                }
                 if (hasFocus) {
                     v.setOutlineSpotShadowColor(accentColor);
                     v.setOutlineAmbientShadowColor(accentColor);
                     updateAmbientForView(v, accentColor);
-                    ensureVisibleOnScreen(v);
+                    scrollHomeToTop();
                 }
             }
         });
@@ -1019,14 +1204,18 @@ public class MainActivity extends Activity {
     private void attachAppFocusEffect(
             final View container,
             final View tileBox,
+            final ImageView dimmableArt,
+            final View dimmableLockup,
             final TextView label,
+            final boolean hideLabelAtRest,
             final View parentRow,
+            final int rowIndex,
             final int accentColor
     ) {
         container.setOnFocusChangeListener(new View.OnFocusChangeListener() {
             @Override
             public void onFocusChange(final View v, boolean hasFocus) {
-                float scale = hasFocus ? 1.075f : 1.0f;
+                float scale = hasFocus ? 1.072f : 1.0f;
                 tileBox.animate()
                         .scaleX(scale)
                         .scaleY(scale)
@@ -1039,9 +1228,19 @@ public class MainActivity extends Activity {
                     parentRow.setTranslationZ(hasFocus ? dp(6) : 0f);
                 }
 
+                if (dimmableArt != null) {
+                    dimmableArt.setColorFilter(hasFocus ? null : REST_TILE_DIM_FILTER);
+                }
+                if (dimmableLockup != null) {
+                    dimmableLockup.animate()
+                            .alpha(hasFocus ? 1.0f : 0.86f)
+                            .setDuration(FOCUS_ANIM_MS)
+                            .start();
+                }
+
                 label.animate()
-                        .alpha(hasFocus ? 1.0f : 0.54f)
-                        .translationY(hasFocus ? dp(3) : 0f)
+                        .alpha(hasFocus ? 0.96f : (hideLabelAtRest ? 0f : 0.56f))
+                        .translationY(hasFocus ? dp(2) : (hideLabelAtRest ? -dp(2) : 0f))
                         .setDuration(FOCUS_ANIM_MS)
                         .setInterpolator(FOCUS_EASE)
                         .start();
@@ -1050,10 +1249,20 @@ public class MainActivity extends Activity {
                     tileBox.setOutlineSpotShadowColor(accentColor);
                     tileBox.setOutlineAmbientShadowColor(accentColor);
                     updateAmbientForView(tileBox, accentColor);
-                    ensureVisibleOnScreen(v);
+                    if (rowIndex <= 1) {
+                        scrollHomeToTop();
+                    } else {
+                        ensureVisibleOnScreen(v);
+                    }
                 }
             }
         });
+    }
+
+    private void scrollHomeToTop() {
+        if (mainScrollView != null && mainScrollView.getScrollY() != 0) {
+            mainScrollView.smoothScrollTo(0, 0);
+        }
     }
 
     private void updateAmbientForView(final View v, final int accentColor) {

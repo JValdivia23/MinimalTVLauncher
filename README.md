@@ -5,11 +5,11 @@ An ultra-lightweight (~58 KB APK), zero-dependency, ad-free open-source Android 
 Designed to replace sluggish, ad-heavy Google TV launchers on low-RAM (2 GB) smart monitors with an **Obsidian Spatial** aesthetic, native hardware input switching (**DisplayPort**, **USB-C**, **HDMI**), and **auto-boot directly into your PC input**.
 
 ### Home Menu
-![MinimalTVLauncher Home Menu](docs/screenshot.png)
+![MinimalTVLauncher Home Menu](docs/home_menu.png)
 
 <p align="center">
-  <img src="docs/focus_dp.png" width="49%" alt="Hardware Input Focus — Ice-Blue Backlight (DisplayPort)" />
-  <img src="docs/focus_netflix.png" width="49%" alt="Cinema App Focus — Crimson Backlight (Netflix)" />
+  <img src="docs/focus_source.png" width="49%" alt="Hardware Input Focus — Ice-Blue Backlight (DisplayPort)" />
+  <img src="docs/focus_cinema.png" width="49%" alt="Cinema App Focus — Crimson Backlight (Netflix)" />
 </p>
 
 ### Built-in MRMS Weather Radar Screensaver

@@ -236,7 +236,7 @@ public class MainActivity extends Activity {
     private void buildUi() {
         rootFrame = new FrameLayout(this);
         ambientBackdrop = new AmbientBackdropDrawable();
-        ambientBackdrop.setImmediate(ACCENT_DP, 0.16f, 0.30f, 0.21f, 0.14f);
+        ambientBackdrop.setImmediate(ACCENT_DP, 0.16f, 0.30f, 0.21f, 0.14f, true);
         rootFrame.setBackground(ambientBackdrop);
         rootFrame.setClipChildren(false);
         rootFrame.setClipToPadding(false);
@@ -695,7 +695,6 @@ public class MainActivity extends Activity {
         card.setClickable(true);
         float cardRadiusPx = dpF(16f);
         applyRoundedOutline(card, cardRadiusPx, true);
-        card.setForeground(new BevelRimDrawable(cardRadiusPx, dpF(1.1f), dpF(1.9f), accent));
 
         // Subtle internal port-accent wash bleeding gently rightward from the connector well
         final View portWash = new View(this);
@@ -704,6 +703,7 @@ public class MainActivity extends Activity {
                 ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT);
         washLp.setMargins(dp(1), dp(1), dp(1), dp(1));
         card.addView(portWash, washLp);
+        card.setForeground(new BevelRimDrawable(cardRadiusPx, dpF(1.1f), dpF(5f), accent, portWash));
 
         LinearLayout content = new LinearLayout(this);
         content.setOrientation(LinearLayout.HORIZONTAL);
@@ -818,7 +818,7 @@ public class MainActivity extends Activity {
         card.setClickable(true);
         float cardRadiusPx = dpF(16f);
         applyRoundedOutline(card, cardRadiusPx, true);
-        card.setForeground(new BevelRimDrawable(cardRadiusPx, dpF(1.0f), dpF(1.8f), ACCENT_OSD));
+        card.setForeground(new BevelRimDrawable(cardRadiusPx, dpF(1.0f), dpF(5f), ACCENT_OSD, null));
 
         FrameLayout iconWell = new FrameLayout(this);
         iconWell.setDuplicateParentStateEnabled(true);
@@ -1007,13 +1007,13 @@ public class MainActivity extends Activity {
         tileBox.setBackgroundColor(0xFF0E1118);
         float tileRadiusPx = dpF(13f);
         applyRoundedOutline(tileBox, tileRadiusPx, true);
-        tileBox.setForeground(new BevelRimDrawable(tileRadiusPx, dpF(1.25f), dpF(1.95f), app.accentColor));
-
+        final View edgeArtwork;
         ImageView dimmableArt = null;
         View dimmableLockup = null;
 
         if (app.customLockupIconRes != 0) {
             View tintedBg = new View(this);
+            edgeArtwork = tintedBg;
             tintedBg.setBackground(AmbientBackdropDrawable.createIconTileBackdrop(app.accentColor, dp(115)));
             tileBox.addView(tintedBg, new FrameLayout.LayoutParams(
                     ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT));
@@ -1044,6 +1044,7 @@ public class MainActivity extends Activity {
             dimmableLockup = lockup;
         } else if (app.isBanner) {
             ImageView img = new ImageView(this);
+            edgeArtwork = img;
             img.setImageDrawable(app.bannerOrIcon);
             img.setScaleType(ImageView.ScaleType.CENTER_CROP);
             img.setColorFilter(REST_TILE_DIM_FILTER);
@@ -1052,6 +1053,7 @@ public class MainActivity extends Activity {
             dimmableArt = img;
         } else {
             View tintedBg = new View(this);
+            edgeArtwork = tintedBg;
             tintedBg.setBackground(AmbientBackdropDrawable.createIconTileBackdrop(app.accentColor, dp(110)));
             tileBox.addView(tintedBg, new FrameLayout.LayoutParams(
                     ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT));
@@ -1064,6 +1066,8 @@ public class MainActivity extends Activity {
             dimmableArt = icon;
         }
 
+        tileBox.setForeground(new BevelRimDrawable(tileRadiusPx, dpF(1.25f), dpF(6f),
+                app.accentColor, edgeArtwork));
         container.addView(tileBox, new LinearLayout.LayoutParams(
                 ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT));
 
@@ -1145,6 +1149,8 @@ public class MainActivity extends Activity {
             @Override
             public void getOutline(View v, Outline outline) {
                 outline.setRoundRect(0, 0, v.getWidth(), v.getHeight(), radiusPx);
+                // The backdrop already supplies the light behind these clipped tiles.
+                if (clip) outline.setAlpha(0f);
             }
         });
         view.setClipToOutline(clip);
@@ -1198,8 +1204,6 @@ public class MainActivity extends Activity {
                     ));
                 }
                 if (hasFocus) {
-                    v.setOutlineSpotShadowColor(accentColor);
-                    v.setOutlineAmbientShadowColor(accentColor);
                     updateAmbientForView(v, 1.038f, accentColor);
                     scrollHomeToTop();
                 }
@@ -1252,8 +1256,6 @@ public class MainActivity extends Activity {
                         .start();
 
                 if (hasFocus) {
-                    tileBox.setOutlineSpotShadowColor(accentColor);
-                    tileBox.setOutlineAmbientShadowColor(accentColor);
                     updateAmbientForView(tileBox, 1.072f, accentColor);
                     if (rowIndex <= 1) {
                         scrollHomeToTop();
@@ -1276,10 +1278,11 @@ public class MainActivity extends Activity {
         v.post(new Runnable() {
             @Override
             public void run() {
+                boolean crystalTile = v.getForeground() instanceof BevelRimDrawable;
                 int rw = rootFrame.getWidth();
                 int rh = rootFrame.getHeight();
                 if (rw <= 0 || rh <= 0) {
-                    ambientBackdrop.transitionTo(accentColor, 0.50f, 0.30f, 0.20f, 0.14f);
+                    ambientBackdrop.transitionTo(accentColor, 0.50f, 0.30f, 0.20f, 0.14f, crystalTile);
                     return;
                 }
                 rootFrame.getLocationInWindow(rootLocBuf);
@@ -1291,7 +1294,7 @@ public class MainActivity extends Activity {
                 float cy = ((locBuf[1] - rootLocBuf[1]) + (v.getHeight() * curScaleY) * 0.5f) / (float) rh;
                 float nw = (v.getWidth() * targetScale) / (float) rw;
                 float nh = (v.getHeight() * targetScale) / (float) rh;
-                ambientBackdrop.transitionTo(accentColor, cx, cy, nw, nh);
+                ambientBackdrop.transitionTo(accentColor, cx, cy, nw, nh, crystalTile);
             }
         });
     }

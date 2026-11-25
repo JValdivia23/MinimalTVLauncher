@@ -1,25 +1,27 @@
 # MinimalTVLauncher
 
-An ultra-lightweight (~58 KB APK), zero-dependency, ad-free open-source Android TV launcher built for Smart Monitors (tested on the **KTC A32Q8** / Realtek `RTD2851F`).
+An ultra-lightweight (~62 KiB APK), zero-dependency, ad-free open-source Android TV launcher built for Smart Monitors (tested on the **KTC A32Q8** / Realtek `RTD2851F`).
 
 Designed to replace sluggish, ad-heavy Google TV launchers on low-RAM (2 GB) smart monitors with an **Obsidian Spatial** aesthetic, native hardware input switching (**DisplayPort**, **USB-C**, **HDMI**), and **auto-boot directly into your PC input**.
 
 ### Home Menu
-![MinimalTVLauncher Home Menu](docs/home_menu.png)
+![Launcher home screen with Disney+ selected and its cyan bevel lit](docs/ice_bevel_home.png)
+
+Focus detail on the KTC A32Q8: DisplayPort (left) and Netflix (right).
 
 <p align="center">
-  <img src="docs/focus_source.png" width="49%" alt="Hardware Input Focus — Ice-Blue Backlight (DisplayPort)" />
-  <img src="docs/focus_cinema.png" width="49%" alt="Cinema App Focus — Crimson Backlight (Netflix)" />
+  <img src="docs/ice_bevel_displayport.png" width="49%" alt="Close-up of the DisplayPort tile with an ice-blue edge" />
+  <img src="docs/ice_bevel_netflix.png" width="49%" alt="Close-up of the Netflix tile with a ruby-red edge" />
 </p>
 
 ### Built-in MRMS Weather Radar Screensaver
-![MRMS Weather Radar Screensaver](docs/radar.png)
+![MRMS weather radar showing precipitation, the reflectivity scale, and playback controls](docs/mrms_radar.png)
 
 ## Features
 
 - **Obsidian Spatial Aesthetic (Zero Blur Overhead)**:
-  - **Physically Coherent Ambient & Backlit Optics**: Unified `12-o'clock` overhead room lighting across all resting cards and tiles (top catchlight, neutral grazing sides, grounded underside shadow), paired with an aspect-matched radial backlight aura, continuous `accentColor`-infused backlit glass rim on the focused element, and a cached `64×64` procedural micro-noise dither to eliminate 8-bit panel Mach banding.
-  - **Cinema 16:9 App Gallery**: Exact `16:9` full-bleed artwork with flush zero-offset 3D bevel rims, rest-state cinema dimming (`0.82×` → `1.0×` focus bloom), tvOS-style focus-reveal floating titles, and native API 28+ colored GPU shadows (`setOutlineSpotShadowColor`).
+  - **Ambient & Backlit Optics**: Overhead lighting on resting cards, an aspect-matched accent backlight behind the selection, and a cached `64×64` noise texture to reduce panel banding.
+  - **Cinema 16:9 App Gallery**: Focused tiles have a crisp ice-like edge: the outer lip catches the backlight, and the curved bevel refracts a narrow strip of the banner while the flat face stays sharp. Includes full-bleed `16:9` artwork, rest-state dimming (`0.82×` → `1.0×`), and focus-reveal titles.
   - **Automatic Obsidian Banner Remapping & Bespoke System Lockups**: Automatically converts blinding white-slab Leanback banners (e.g., *Netflix*, *Play Store*, *YouTube*) into cohesive dark obsidian cards via linear-light unmixing while preserving brand colors and enclosed cutouts, alongside custom dark-glass vector lockups for stock utilities (*Media Player*, *Miracast*).
   - **Frosted Glass Control Capsule**: Quiet 3-chip top-lit glass bar (`Radar`, `Zzz`, `Boot · DP`) paired with a standalone circular glass `Settings` button and a tabular-numeral live clock.
 - **Native Smart Monitor Sources**: Dynamically discovers hardware passthrough inputs via Android's `TvInputManager` (**DisplayPort**, **USB-C**, **HDMI 1**) with unified `12-o'clock` & backlit bevel rims, subtle port-accent inner washes, active-signal emerald LEDs, a recessed `BOOT` micro-tag, and a ghost-glass `All Inputs` OSD tile.
@@ -35,7 +37,7 @@ Designed to replace sluggish, ad-heavy Google TV launchers on low-RAM (2 GB) sma
   - Click the top-bar **`Boot · ...`** chip to cycle through `DP` → `USB-C` → `HDMI 1` → `Off`.
   - Or **long-press** any source tile to set it as the default boot input immediately.
   - Uses both `BOOT_COMPLETED` (`BootReceiver`) and cold-boot uptime fallback so your monitor jumps straight to your workstation on power-on.
-- **Ultra-Low Footprint**: ~58 KB compiled APK, ~0.8 MB Java heap (~47 MB total PSS), zero Gradle bloat, zero ads, zero telemetry/Firebase.
+- **Ultra-Low Footprint**: ~62 KiB compiled APK, ~0.8 MB Java heap (~47 MB total PSS), zero Gradle bloat, zero ads, zero telemetry/Firebase.
 
 ## Requirements
 

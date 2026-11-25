@@ -65,6 +65,7 @@ public final class AmbientBackdropDrawable extends Drawable {
     private float focusNormY = 0.30f;
     private float focusNormW = 0.20f;
     private float focusNormH = 0.14f;
+    private float crystalGlow = 0f;
 
     private boolean baseDirty = true;
     private boolean washDirty = true;
@@ -116,7 +117,8 @@ public final class AmbientBackdropDrawable extends Drawable {
             float targetNormX,
             float targetNormY,
             float targetNormW,
-            float targetNormH
+            float targetNormH,
+            boolean crystalTile
     ) {
         final float clampedX = Math.max(0.05f, Math.min(0.95f, targetNormX));
         final float clampedY = Math.max(0.05f, Math.min(0.92f, targetNormY));
@@ -132,12 +134,15 @@ public final class AmbientBackdropDrawable extends Drawable {
         final float startY = focusNormY;
         final float startW = focusNormW;
         final float startH = focusNormH;
+        final float startGlow = crystalGlow;
+        final float targetGlow = crystalTile ? 1f : 0f;
 
         if (startColor == targetColor
                 && Math.abs(startX - clampedX) < 0.005f
                 && Math.abs(startY - clampedY) < 0.005f
                 && Math.abs(startW - clampedW) < 0.005f
-                && Math.abs(startH - clampedH) < 0.005f) {
+                && Math.abs(startH - clampedH) < 0.005f
+                && startGlow == targetGlow) {
             return;
         }
 
@@ -163,6 +168,7 @@ public final class AmbientBackdropDrawable extends Drawable {
                 focusNormY = startY + (clampedY - startY) * f;
                 focusNormW = startW + (clampedW - startW) * f;
                 focusNormH = startH + (clampedH - startH) * f;
+                crystalGlow = startGlow + (targetGlow - startGlow) * f;
                 washDirty = true;
                 invalidateSelf();
             }
@@ -170,7 +176,8 @@ public final class AmbientBackdropDrawable extends Drawable {
         animator.start();
     }
 
-    public void setImmediate(int color, float normX, float normY, float normW, float normH) {
+    public void setImmediate(int color, float normX, float normY, float normW, float normH,
+                             boolean crystalTile) {
         if (animator != null && animator.isRunning()) {
             animator.cancel();
         }
@@ -179,6 +186,7 @@ public final class AmbientBackdropDrawable extends Drawable {
         focusNormY = Math.max(0.05f, Math.min(0.92f, normY));
         focusNormW = Math.max(0.04f, Math.min(0.50f, normW));
         focusNormH = Math.max(0.05f, Math.min(0.45f, normH));
+        crystalGlow = crystalTile ? 1f : 0f;
         washDirty = true;
         invalidateSelf();
     }
@@ -245,17 +253,17 @@ public final class AmbientBackdropDrawable extends Drawable {
                     Shader.TileMode.CLAMP
             ));
 
-            // Tight aspect-matched backlight aura hugging all 4 edges of the focused card/tile
-            // so background glow and backlit bevel rim brightness share one physical light source
+            // The continuous backlight behind the tile also supplies the accent for its bevel.
+            // The stronger tile profile replaces the native colored shadow.
             float rx = Math.max(w * 0.045f, w * focusNormW * 0.86f);
             float ry = Math.max(h * 0.065f, h * focusNormH * 1.06f);
             RadialGradient unitAura = new RadialGradient(
                     0f, 0f, 1f,
                     new int[] {
-                            Color.argb(0x5E, r, g, bl),
-                            Color.argb(0x46, r, g, bl),
-                            Color.argb(0x1C, r, g, bl),
-                            Color.argb(0x06, r, g, bl),
+                            Color.argb(0x5E + Math.round(0x37 * crystalGlow), r, g, bl),
+                            Color.argb(0x46 + Math.round(0x30 * crystalGlow), r, g, bl),
+                            Color.argb(0x1C + Math.round(0x21 * crystalGlow), r, g, bl),
+                            Color.argb(0x06 + Math.round(0x0B * crystalGlow), r, g, bl),
                             Color.argb(0x00, r, g, bl)
                     },
                     new float[] { 0f, 0.54f, 0.74f, 0.89f, 1f },
@@ -263,7 +271,7 @@ public final class AmbientBackdropDrawable extends Drawable {
             );
             auraMatrix.reset();
             auraMatrix.setScale(rx, ry);
-            auraMatrix.postTranslate(cx, cy);
+            auraMatrix.postTranslate(cx, cy + ry * 0.09f * crystalGlow);
             unitAura.setLocalMatrix(auraMatrix);
             auraPaint.setShader(unitAura);
 
